@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environment (recreate with: python3 -m venv .venv && pip install -r requirements.txt)
+.venv/
+
+# Downloaded market data cache
+.cache/
+
+# Exported reports
+*.xlsx
+
+# Editor / OS / local tooling
+.DS_Store
+.vscode/
+.idea/
+.claude/
