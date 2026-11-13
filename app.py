@@ -1154,6 +1154,220 @@ def render_compare() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Backtest results
+# --------------------------------------------------------------------------- #
+
+GROUP_COLORS = {"Cheapest third": TEAL, "Middle third": GREY, "Most expensive third": RED,
+                "All stocks (equal weight)": "#64748b", "S&P 500 (SPY)": AMBER}
+
+
+def correlation_words(rho: float) -> str:
+    if pd.isna(rho):
+        return "unknown"
+    size = abs(rho)
+    strength = ("essentially no" if size < 0.03 else "a very weak" if size < 0.07
+                else "a weak" if size < 0.15 else "a moderate")
+    direction = "" if size < 0.03 else (" positive" if rho > 0 else " negative")
+    return f"{strength}{direction}"
+
+
+def render_backtest() -> None:
+    from dcf.backtest import load_results  # imported here so the page loads even if results are missing
+
+    st.markdown("## Backtest: did the model's calls work?")
+    st.caption("Every year, the model valued about 70 large US companies using only information available at the "
+               "time, then we checked what their share prices actually did over the next 12 months.")
+    signals, summary = load_results()
+    if summary is None or signals is None or not summary.get("yearly"):
+        st.info("No backtest results yet. Run `python run_backtest.py` in the project folder, then reload this page.")
+        return
+
+    names = summary["group_names"]
+    cheap, dear = names[0], names[-1]
+    avg = summary["avg_return"]
+    n, beat = summary["n_years"], summary["cheap_beat_expensive"]
+    diff = avg[cheap] - avg[dear]
+    rho = summary["avg_rank_correlation"]
+    period = f"{summary['first_year']}–{summary['last_year'] + 1}"
+
+    if diff > 0.02 and beat > n / 2:
+        verdict, color = "The model's \"cheap\" stocks did better, on average", "green"
+    elif diff < -0.02 and beat < n / 2:
+        verdict, color = "The model's \"cheap\" stocks did worse, on average", "red"
+    else:
+        verdict, color = "No clear difference between \"cheap\" and \"expensive\" stocks", "orange"
+    with st.container(border=True):
+        st.markdown(esc(
+            f"#### :{color}[{verdict}]\n"
+            f"Over {n} years ({period}), the third of stocks the model rated **cheapest** returned **{avg[cheap]:.1%} a "
+            f"year** on average, versus **{avg[dear]:.1%}** for the **most expensive** third: a gap of "
+            f"**{diff:+.1%} a year**. The cheapest third came out ahead in **{beat} of {n} years**. Across all stocks, "
+            f"the model's gap vs. price had {correlation_words(rho)} relationship with the next year's return "
+            f"(rank correlation {rho:+.2f}, where 0 means none and 1 means perfect)."
+        ))
+        st.caption("Past results don't guarantee future ones, and this test has important limits; see the bottom of "
+                   "the page before drawing conclusions.")
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Cheapest third", pct(avg[cheap]), help="Average yearly return, including dividends.")
+    m2.metric("Most expensive third", pct(avg[dear]))
+    m3.metric("Difference", f"{diff:+.1%}", delta=f"{diff:+.1%} a year")
+    m4.metric("Years cheap won", f"{beat} of {n}")
+
+    yearly = pd.DataFrame(summary["yearly"]).set_index("year")
+    series = names + ["All stocks (equal weight)", "S&P 500 (SPY)"]
+
+    # ---- Growth of $1 ---------------------------------------------------------
+    st.markdown("#### What $1 would have grown to")
+    years = list(yearly.index)
+    x = [years[0]] + [y + 1 for y in years]
+    fig = go.Figure()
+    for s in series:
+        values = [1.0] + list((1 + yearly[s].fillna(0)).cumprod())
+        fig.add_scatter(x=x, y=values, name=s, mode="lines+markers",
+                        line=dict(color=GROUP_COLORS.get(s, BLUE), width=3 if s in (cheap, dear) else 2,
+                                  dash="dot" if s.startswith("S&P") else "dash" if s.startswith("All") else None))
+    chart_layout(fig, height=400, yaxis=dict(tickprefix="$", tickformat=",.2f", title="Value of $1"),
+                 xaxis=dict(dtick=1))
+    show(fig)
+    g1 = summary["growth_of_1"]
+    explain(
+        "**What this shows:** imagine putting $1 into each group every April and re-picking the stocks each year. "
+        f"By {summary['last_year'] + 1}, $1 in the cheapest third grew to **${g1[cheap]:.2f}**, in the most expensive "
+        f"third to **${g1[dear]:.2f}**, and in the S&P 500 to **${g1['S&P 500 (SPY)']:.2f}** (all including dividends, "
+        "before trading costs and taxes).\n\n"
+        "**How to read it:** if the green line (cheap) ends well above the red line (expensive), the model's "
+        "valuations helped pick better stocks over this period. The grey line is all ~70 stocks equally weighted, "
+        "which shows how much of any outperformance just comes from this group of companies."
+    )
+
+    # ---- Year by year -----------------------------------------------------------
+    st.markdown("#### Year by year: cheapest third minus most expensive third")
+    gap = (yearly[cheap] - yearly[dear]).dropna()
+    fig = go.Figure(go.Bar(
+        x=[f"{y}–{str(y + 1)[2:]}" for y in gap.index], y=gap.values,
+        marker_color=[TEAL if v >= 0 else RED for v in gap.values],
+        text=[f"{v:+.0%}" for v in gap.values], textposition="outside", cliponaxis=False,
+    ))
+    chart_layout(fig, height=340, showlegend=False, hovermode="closest", yaxis=dict(tickformat="+.0%"))
+    show(fig)
+    explain(
+        "**What this shows:** for each 12-month period (April to April), how much better (green, above zero) or "
+        "worse (red, below zero) the cheapest third did than the most expensive third.\n\n"
+        "**How to read it:** a model with a real, reliable edge would show mostly green bars. Long runs of one "
+        "colour usually reflect market fashions; for example, years when fast-growing tech companies (which a DCF "
+        "often calls expensive) led the market show up as red."
+    )
+
+    # ---- Three-year view ------------------------------------------------------------
+    three = summary.get("three_year") or {}
+    if three:
+        n3, beat3 = summary.get("three_year_n", 0), summary.get("three_year_beat", 0)
+        st.markdown("#### Does it work better over 3 years?")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Cheapest third, 3 years", f"{three[cheap]:.1%} a year")
+        c2.metric("Most expensive third, 3 years", f"{three[dear]:.1%} a year")
+        c3.metric("Periods cheap won", f"{beat3} of {n3}")
+        gap3 = three[cheap] - three[dear]
+        explain(
+            "**Why check this:** valuation is often said to matter more over several years than over one, because "
+            "prices take time to move towards what a business is worth.\n\n"
+            f"**What happened here:** holding each group for 3 years instead of 1, the cheapest third returned "
+            f"**{three[cheap]:.1%} a year** and the most expensive third **{three[dear]:.1%}** (a gap of "
+            f"**{gap3:+.1%} a year**), with the cheapest third ahead in **{beat3} of {n3}** starting years. "
+            + ("So the longer horizon didn't help in this period. That's consistent with 2012–2025 being an era when "
+               "fast-growing companies, which cash-flow models tend to rate as expensive, kept winning."
+               if gap3 <= 0.005 else
+               "So the model's view lined up better with results over the longer horizon.")
+        )
+
+    # ---- Scatter -------------------------------------------------------------------
+    used = signals[signals["group"].notna()].copy()
+    if not used.empty:
+        st.markdown("#### Every stock, every year")
+        clip = used.assign(upside_c=used["upside"].clip(-1, 2), fwd_c=used["fwd_1y"].clip(-0.8, 1.5))
+        fig = go.Figure(go.Scatter(
+            x=clip["upside_c"], y=clip["fwd_c"], mode="markers",
+            marker=dict(size=7, color=clip["year"], colorscale="Blues", showscale=True,
+                        colorbar=dict(title="Year"), line=dict(width=0.5, color="white")),
+            text=[f"{t} {y}" for t, y in zip(used["ticker"], used["year"])],
+            hovertemplate="%{text}<br>Model gap vs. price: %{x:+.0%}<br>Next-year return: %{y:+.0%}<extra></extra>",
+        ))
+        fig.add_hline(y=0, line_color=GREY)
+        fig.add_vline(x=0, line_color=GREY)
+        chart_layout(fig, height=420, hovermode="closest", showlegend=False,
+                     xaxis=dict(tickformat="+.0%", title="Model's estimate vs. price (right = looked cheap)"),
+                     yaxis=dict(tickformat="+.0%", title="Return over the next 12 months"))
+        show(fig)
+        explain(
+            "**What this shows:** each dot is one stock in one year. Further **right** = the model said it was "
+            "cheaper; further **up** = it did better over the next year. Extreme values are pinned to the edges so "
+            "the chart stays readable.\n\n"
+            "**How to read it:** if the model worked well, dots would drift from bottom-left to top-right. A shapeless "
+            "cloud means the valuation alone told you little about the next year. That's common: over one year, share "
+            "prices are driven mostly by news, earnings surprises and sentiment."
+        )
+
+    # ---- Tables ----------------------------------------------------------------------
+    st.markdown("#### Results by year")
+    shown = yearly[["stocks"] + series + ["rank_correlation"]].copy()
+    shown.index = [f"Apr {y} → Apr {y + 1}" for y in shown.index]
+    fmt = {s: "{:+.1%}" for s in series}
+    fmt["rank_correlation"] = "{:+.2f}"
+    st.dataframe(shown.rename(columns={"stocks": "Stocks valued", "rank_correlation": "Rank correlation"})
+                 .style.format({("Rank correlation" if k == "rank_correlation" else k): v for k, v in fmt.items()},
+                               na_rep="n/a"),
+                 width="stretch")
+
+    st.markdown("#### Look inside a year")
+    year = st.selectbox("Year", sorted(signals["year"].unique(), reverse=True),
+                        format_func=lambda y: f"April {y} → April {y + 1}", key="bt_year")
+    sub = signals[signals["year"] == year].copy()
+    sub["Group"] = sub["group"].map(lambda g: names[int(g)] if pd.notna(g) else "")
+    sub["Note"] = sub["excluded"].replace({"": ""})
+    sub = sub.sort_values("upside", ascending=False)
+    st.dataframe(
+        sub[["ticker", "price", "value", "upside", "Group", "fwd_1y", "growth", "discount_rate", "Note"]],
+        hide_index=True, width="stretch",
+        column_config={
+            "ticker": "Ticker",
+            "price": st.column_config.NumberColumn("Price then", format="$%.2f"),
+            "value": st.column_config.NumberColumn("Model value", format="$%.2f"),
+            "upside": st.column_config.NumberColumn("Gap vs. price", format="percent"),
+            "fwd_1y": st.column_config.NumberColumn("Next 12 months", format="percent"),
+            "growth": st.column_config.NumberColumn("Growth used", format="percent"),
+            "discount_rate": st.column_config.NumberColumn("Discount rate", format="percent"),
+        },
+    )
+    explain("Sorted from what the model thought was cheapest to most expensive. Compare the *Gap vs. price* column "
+            "with *Next 12 months* to see where it was right and wrong. Stocks with a note were skipped that year, "
+            "usually because they had negative cash flow or not enough filings yet.")
+
+    # ---- Method and limitations ---------------------------------------------------------
+    with st.expander("How this test was done, and its limits", expanded=False):
+        st.markdown(
+            """
+**Method**
+- **Dates:** every 1 April from the first year shown, after most companies have filed their annual reports.
+- **No peeking:** each valuation uses only annual reports already filed with the SEC by that date, the actual share price that day, the 10-year Treasury yield that day, and beta from the previous two years.
+- **Same model as the app:** a 5-year DCF with growth fading to 2.5%, discounted at the WACC (banks: dividends + buybacks at the cost of equity). Growth comes from past sales growth, because analysts' forecasts from back then aren't freely available.
+- **Groups:** stocks are ranked by the model's gap vs. price and split into equal thirds. Each group's result is the simple average return (price change plus dividends) over the following 12 months.
+
+**Limits to keep in mind**
+- **Survivorship bias:** the list is today's big companies. Firms that shrank, were bought or went bust over the period aren't included, which flatters all groups.
+- **Small sample:** about 70 stocks and a dozen or so years. A few big winners (or losers) can swing the results.
+- **Short horizons:** results are measured over 1 year (and 3 years in the section above). Valuation signals are often studied over 5–10 years, which this data is too short to test well.
+- **One era:** 2012–2025 was dominated by fast-growing technology companies. A model that favours steady cash generators may do differently in other periods.
+- **Simplified model and data:** financial items are read automatically from SEC filings using standard labels, and some companies' figures may be missed or misread. Safeguards cross-check share counts and skip estimates above 6× the price as likely data errors; skipped cases are labelled in *Look inside a year*.
+- **Mergers and spin-offs:** right after a big deal the latest annual report can describe a different company (e.g. Abbott in April 2013 still included AbbVie, spun off that January), which can mislead the model for a year.
+- **No costs:** trading costs and taxes are ignored.
+- **The past isn't the future:** even a real historical edge can disappear.
+"""
+        )
+    st.caption("Run `python run_backtest.py` to refresh these results. Not investment advice.")
+
+
+# --------------------------------------------------------------------------- #
 # "How it works" tabs
 # --------------------------------------------------------------------------- #
 
@@ -1247,13 +1461,16 @@ if "explain" not in st.session_state:
     st.session_state["explain"] = True
 
 with st.sidebar:
-    mode = st.radio("What do you want to do?", ["One stock or fund", "Compare several"], key="mode", horizontal=True)
+    mode = st.radio("What do you want to do?", ["One stock or fund", "Compare several", "Backtest results"],
+                    key="mode", help="Backtest results: how the model's past calls actually turned out.")
 
 st.title("📈 Stock & Fund Valuation")
 st.markdown("Estimate what a stock or index fund is worth, based on the cash it's expected to produce.")
 
 if mode == "Compare several":
     render_compare()
+elif mode == "Backtest results":
+    render_backtest()
 else:
     with st.sidebar:
         st.markdown("### 1. Choose a stock or fund")

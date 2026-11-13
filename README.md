@@ -22,6 +22,7 @@ Everything is explained in plain English inside the app, with a 💡 box under e
 | **Price outlook** | Where the price could be in 1, 3 or 5 years: the typical range from past price swings, the model's fair value, and analysts' 12-month targets, with upside and downside for each. |
 | **Price history** | 5 years of prices against the estimate and the scenario range. |
 | **Compare mode** | Up to 6 stocks and funds side by side. |
+| **Backtest** | Tests the model on history: every year since 2012, value ~70 large companies using only information available at the time, and check whether the "cheap" ones beat the "expensive" ones over the next 12 months. |
 | **Excel export** | Download the full report (summary, assumptions, forecast, scenarios, what-if, past data). |
 | **Fast reloads** | Downloaded data is saved for 12 hours, so reopening a ticker is instant. |
 
@@ -61,6 +62,35 @@ python main.py AAPL --horizon 3             # price outlook 3 years ahead (1, 3 
 
 Run `python main.py --help` for every option.
 
+## Backtest
+
+```bash
+python run_backtest.py                      # ~70 companies, 2012 to the latest complete year
+python run_backtest.py --first 2015 --tickers AAPL MSFT KO PEP JNJ
+```
+
+Each year on 1 April, every stock is valued **as of that day**, with no look-ahead:
+
+- **Financials:** only annual reports already filed with the SEC, read from [SEC EDGAR](https://www.sec.gov/edgar)'s free company-facts data (restated figures count only once they're filed).
+- **Price:** the price that actually traded that day (later stock splits undone).
+- **Risk-free rate:** the 10-year Treasury yield that day. **Beta:** from the previous two years of weekly returns.
+- **Growth:** past sales growth (historical analyst forecasts aren't freely available).
+
+Stocks are split into thirds by the model's gap vs. price, and each third's average total return over the next 12 months is compared, along with the S&P 500. Results are saved to `results/` and shown on the dashboard's **Backtest results** page. The first run downloads about 10 years of filings and prices per company (a few minutes); later runs reuse them.
+
+**What it found (April 2012 – April 2026, ~66 stocks a year, 922 valuations):**
+
+| Group (by model's gap vs. price) | Avg return, next 12 months | Avg return a year, next 3 years |
+|---|---|---|
+| Cheapest third | 16.4% | 13.4% |
+| Middle third | 15.2% | 12.2% |
+| Most expensive third | 17.5% | 15.3% |
+| S&P 500 (SPY) | 15.1% | – |
+
+The model's "cheap" stocks did **not** beat its "expensive" ones: the cheapest third won in 5 of 14 years over 12 months and 0 of 12 periods over 3 years, and the rank correlation between the model's gap and the next year's return was about zero. That's consistent with 2012–2025 being dominated by fast-growing companies that cash-flow models tend to rate as expensive, and a reminder that a valuation estimate is a starting point for judgement, not a trading signal.
+
+**Limits:** the universe is today's large companies (survivorship bias), the sample is small, and a 1-year horizon is short for a valuation signal. See the dashboard page for details.
+
 ## How it works
 
 1. **Starting cash flow:** the company's free cash flow (3-year average, or latest year).
@@ -83,6 +113,10 @@ dcf/
   model.py          DCF math, bank handling, warnings, reverse DCF, scenarios
   report.py         summary tables and Excel export
   outlook.py        price outlook: typical swings, future fair value, analyst targets
+  sec.py            point-in-time financials from SEC EDGAR (for the backtest)
+  backtest.py       historical backtest engine and summary
+run_backtest.py     runs the backtest and saves results/
+results/            saved backtest results shown on the dashboard
   cache.py          on-disk cache of downloaded data (.cache/)
   loader.py         one load() for stocks and funds, plus price history
 tests/              automated tests (pytest)
