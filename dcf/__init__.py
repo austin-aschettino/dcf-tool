@@ -30,6 +30,14 @@ from .model import (
     sensitivity_table,
 )
 from .report import company_scenarios, company_tables, fund_scenarios, fund_tables, to_xlsx
+from .outlook import (
+    PriceOutlook,
+    annual_volatility,
+    build_outlook,
+    company_outlook,
+    cone_path,
+    fund_outlook,
+)
 
 __all__ = [
     "load", "price_history", "data_age_hours",
@@ -39,4 +47,5 @@ __all__ = [
     "FundData", "fetch_fund", "is_fund", "IndexAssumptions", "IndexResult", "default_index_assumptions",
     "run_index_valuation", "implied_index_growth", "index_scenarios", "index_sensitivity",
     "company_scenarios", "fund_scenarios", "company_tables", "fund_tables", "to_xlsx",
+    "PriceOutlook", "annual_volatility", "build_outlook", "company_outlook", "fund_outlook", "cone_path",
 ]

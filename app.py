@@ -30,6 +30,10 @@ from dcf import (
     index_scenarios,
     index_sensitivity,
     load,
+    PriceOutlook,
+    company_outlook,
+    cone_path,
+    fund_outlook,
     make_scenarios,
     price_history,
     run_dcf,
@@ -84,6 +88,7 @@ RED_BG = "background-color: rgba(220,38,38,0.22)"
 CURRENT_CELL = "font-weight: 800; outline: 3px solid #2563eb; outline-offset: -3px"
 NO_TOOLBAR = {"displayModeBar": False}
 SCENARIO_ICONS = {"Pessimistic": "🌧️", "Middle (your settings)": "⛅", "Optimistic": "☀️"}
+TRADING_DAYS_1Y = 252
 
 
 def ticker_label(t: str) -> str:
@@ -372,6 +377,148 @@ def data_freshness(ticker: str) -> None:
 # Stocks
 # --------------------------------------------------------------------------- #
 
+SCENARIO_COLORS = {"Pessimistic": RED, "Middle (your settings)": BLUE, "Optimistic": TEAL}
+
+
+def _chg(o: PriceOutlook, p: float) -> str:
+    c = o.change(p)
+    return "n/a" if pd.isna(c) else f"{c:+.0%}"
+
+
+def outlook_tab(data, a, ticker: str, noun: str) -> None:
+    """The 🎯 Price outlook tab: typical swings, model fair value and analyst targets at a chosen horizon."""
+    is_fund = isinstance(data, FundData)
+    st.markdown("#### Where could the price be?")
+    years = st.radio("Look ahead", [1, 3, 5], format_func=lambda y: f"{y} year{'s' if y > 1 else ''}",
+                     horizontal=True, key=f"horizon__{ticker}")
+    prices = fetch_history(ticker)
+    o = fund_outlook(data, a, prices, years) if is_fund else company_outlook(data, a, prices, years)
+    when = "in 1 year" if years == 1 else f"in {years} years"
+    m = "Middle (your settings)"
+
+    # ---- Plain-English summary ---------------------------------------------
+    parts = []
+    if o.has_volatility:
+        div_note = f", minus its {o.dividend_yield:.1%} dividend" if o.dividend_yield >= 0.001 else ""
+        parts.append(
+            f"📊 **Typical swings.** Over the last year, {data.ticker} moved about **±{o.volatility:.0%} a year**. "
+            f"If it earns a normal return ({o.expected_return:.1%} a year{div_note}), the middle of the range {when} is "
+            f"**${o.center:,.2f}** ({_chg(o, o.center)}). In about **2 out of 3** outcomes the price would land between "
+            f"**${o.likely[0]:,.2f}** and **${o.likely[1]:,.2f}** ({_chg(o, o.likely[0])} to {_chg(o, o.likely[1])}); "
+            f"in about **19 out of 20**, between **${o.wide[0]:,.2f}** and **${o.wide[1]:,.2f}**."
+        )
+    else:
+        parts.append("📊 **Typical swings:** not enough price history to measure how much this one usually moves.")
+    if m in o.fair_future:
+        lo, hi = o.fair_future.get("Pessimistic"), o.fair_future.get("Optimistic")
+        rng = f", with a range of **${lo:,.2f}** (pessimistic) to **${hi:,.2f}** (optimistic)" if lo and hi else ""
+        parts.append(
+            f"🧮 **Model fair value.** If the price moved to the model's estimate, it would be about "
+            f"**${o.fair_future[m]:,.2f}** {when} ({_chg(o, o.fair_future[m])}){rng}."
+        )
+    else:
+        parts.append("🧮 **Model fair value:** not available, because the model can't value this one "
+                     "(see the note at the top of the page).")
+    if o.analysts:
+        an = o.analysts
+        who = f"{an['count']} analysts'" if an.get("count") else "Analysts'"
+        rating = f" Their overall rating: **{an['recommendation']}**." if an.get("recommendation") else ""
+        parts.append(
+            f"🏦 **Analysts.** {who} average 12-month target is **${an['mean']:,.2f}** ({_chg(o, an['mean'])}), "
+            f"ranging from **${an['low']:,.2f}** to **${an['high']:,.2f}**.{rating}"
+        )
+    elif not is_fund:
+        parts.append("🏦 **Analysts:** Yahoo Finance has no analyst price targets for this stock.")
+    with st.container(border=True):
+        st.markdown(esc(f"Today's price: **${o.price:,.2f}** per {noun}.\n\n" + "\n\n".join(parts)))
+
+    # ---- Fan chart -----------------------------------------------------------
+    hist = prices.iloc[-TRADING_DAYS_1Y:] if prices is not None and not prices.empty else pd.Series(dtype=float)
+    start = hist.index[-1] if not hist.empty else pd.Timestamp.today().normalize()
+    end = start + pd.DateOffset(years=years)
+    fig = go.Figure()
+    if o.has_volatility:
+        path = cone_path(o.price, o.expected_return, o.dividend_yield, o.volatility, years, start=start)
+        fig.add_scatter(x=path.index, y=path["wide_high"], mode="lines", line=dict(width=0),
+                        showlegend=False, hoverinfo="skip")
+        fig.add_scatter(x=path.index, y=path["wide_low"], mode="lines", line=dict(width=0), fill="tonexty",
+                        fillcolor="rgba(37,99,235,0.10)", name="Wide range (19 in 20)", hoverinfo="skip")
+        fig.add_scatter(x=path.index, y=path["likely_high"], mode="lines", line=dict(width=0),
+                        showlegend=False, hoverinfo="skip")
+        fig.add_scatter(x=path.index, y=path["likely_low"], mode="lines", line=dict(width=0), fill="tonexty",
+                        fillcolor="rgba(37,99,235,0.25)", name="Likely range (2 in 3)", hoverinfo="skip")
+        fig.add_scatter(x=path.index, y=path["center"], mode="lines", name="Middle (normal return)",
+                        line=dict(color=BLUE, dash="dash", width=2))
+    if not hist.empty:
+        fig.add_scatter(x=hist.index, y=hist.values, mode="lines", name="Price (last 12 months)",
+                        line=dict(color=GREY, width=2))
+    for name, v in o.fair_future.items():
+        fig.add_scatter(x=[end], y=[v], mode="markers+text", name=f"Model: {name.split(' (')[0].lower()}",
+                        marker=dict(color=SCENARIO_COLORS.get(name, BLUE), size=12, symbol="circle"),
+                        text=[f"${v:,.0f}"], textposition="middle right", cliponaxis=False)
+    if o.analysts:
+        an = o.analysts
+        # Targets are for 12 months. On the 1-year view, nudge the diamond left so it doesn't hide the model's dots.
+        x_an = start + pd.DateOffset(years=1) - (pd.DateOffset(days=25) if years == 1 else pd.DateOffset(days=0))
+        fig.add_scatter(
+            x=[x_an], y=[an["mean"]], mode="markers", name="Analysts' targets (low–high)",
+            marker=dict(color=AMBER, size=13, symbol="diamond"),
+            error_y=dict(type="data", array=[an["high"] - an["mean"]], arrayminus=[an["mean"] - an["low"]],
+                         color=AMBER, thickness=2, width=10),
+        )
+    chart_layout(fig, height=440, hovermode="closest",
+                 yaxis=dict(tickprefix="$", tickformat=",.0f", rangemode="tozero"),
+                 xaxis=dict(range=[hist.index[0] if not hist.empty else start, end + pd.DateOffset(months=3)]),
+                 legend=dict(orientation="h", y=-0.15, x=0))
+    show(fig)
+    explain(
+        "**How to read this chart:**\n"
+        "- The **grey line** is the actual price over the last 12 months.\n"
+        "- The **blue fan** shows how far the price could typically wander from here, based on how much it has "
+        "moved in the past year. The darker band holds about 2 out of 3 outcomes, the lighter band about 19 out "
+        "of 20. It widens over time because uncertainty builds up, and it's lopsided (more room up than down) "
+        "because prices can rise without limit but can't fall below zero.\n"
+        "- The **dots** on the right are the model's fair value at the end of the period (red pessimistic, "
+        "blue middle, green optimistic): where the price would be if the market agreed with the model.\n"
+        "- The **amber diamond** is the analysts' average 12-month target, with a line from the lowest to the "
+        "highest target."
+    )
+
+    # ---- Upside / downside table ---------------------------------------------
+    st.markdown(f"#### Upside and downside {when}")
+    t = o.table().reset_index()
+    if not t.empty:
+        t["Change vs. today"] = t["Change vs. today"] * 100
+        t["Yearly return incl. dividends"] = t["Yearly return incl. dividends"] * 100
+
+        def tint(v):
+            if pd.isna(v):
+                return ""
+            return "color: #15803d" if v >= 0 else "color: #dc2626"
+
+        style = t.style.format({
+            "Price": "${:,.2f}", "Change vs. today": "{:+.1f}%", "Yearly return incl. dividends": "{:+.1f}%",
+        }, na_rep="n/a")
+        style = style.map(tint, subset=["Change vs. today", "Yearly return incl. dividends"]) if hasattr(style, "map") \
+            else style.applymap(tint, subset=["Change vs. today", "Yearly return incl. dividends"])
+        st.dataframe(style, hide_index=True, width="stretch", height=36 * (len(t) + 1) + 4)  # show every row
+    explain(
+        "**What the columns mean:**\n"
+        f"- **Price:** where the price would be {when} in that outcome.\n"
+        "- **Change vs. today:** the upside (green) or downside (red) from today's price.\n"
+        "- **Yearly return incl. dividends:** the same change spread over the period as an average yearly return, "
+        "plus any dividends you'd collect along the way (analyst targets always cover 12 months).\n\n"
+        "**How the three lenses fit together:** *typical swings* show the realistic range of outcomes for a stock "
+        "that behaves like it has recently; *model fair value* shows where the price would be if the market came "
+        "round to the model's view; *analysts* show what Wall Street expects. When they point in different "
+        "directions, as they often do, that's a sign of genuine uncertainty, not a mistake."
+    )
+    st.caption(
+        "These are ranges and reference points, not predictions. Prices can move outside even the wide range, "
+        "especially around big news, earnings surprises or market crashes. Not investment advice."
+    )
+
+
 HISTORY_NAMES = {
     "Revenue": "Sales (revenue)",
     "Operating cash flow": "Cash from operations",
@@ -465,10 +612,12 @@ def render_company(c, ticker: str) -> None:
             st.markdown("#### :orange[No valuation for this company]")
             st.write(blocking)
         warnings_box(warnings)
-        tabs = st.tabs(["🏢 Company data", "📖 How it works"])
-        with tabs[0]:
+        t_outlook, t_data, t_how = st.tabs(['🎯 Price outlook', '🏢 Company data', '📖 How it works'])
+        with t_outlook:
+            outlook_tab(c, d, ticker, "share")
+        with t_data:
             company_data_tab(c)
-        with tabs[1]:
+        with t_how:
             how_it_works_stock()
         return
 
@@ -516,12 +665,12 @@ def render_company(c, ticker: str) -> None:
         tail += (f"\n\n📌 {r.terminal_share:.0%} of this estimate comes from years after the forecast, "
                  "so it's very sensitive to the long-term assumptions.")
     verdict_box(c.name, r.value_per_share, c.price, r.upside, "share", tail)
-    download_button(company_tables(c, a, r), ticker)
+    download_button(company_tables(c, a, r, fetch_history(ticker)), ticker)
 
-    tabs = st.tabs(["📊 Overview", "🔮 Forecast", "🎛️ Scenarios & what-if", "🏢 Company data", "📖 How it works"])
+    t_overview, t_outlook, t_forecast, t_scen, t_data, t_how = st.tabs(['📊 Overview', '🎯 Price outlook', '🔮 Forecast', '🎛️ Scenarios & what-if', '🏢 Company data', '📖 How it works'])
 
     # ---- Overview ----------------------------------------------------------
-    with tabs[0]:
+    with t_overview:
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Estimated value / share", f"${r.value_per_share:,.2f}",
                   help="What the model thinks one share is worth, based on the cash the company should produce.")
@@ -584,8 +733,11 @@ def render_company(c, ticker: str) -> None:
             )
         price_chart(ticker, c.price, scen, "share")
 
+    with t_outlook:
+        outlook_tab(c, a, ticker, "share")
+
     # ---- Forecast ----------------------------------------------------------
-    with tabs[1]:
+    with t_forecast:
         hist_years = c.years
         proj_years = ([str(int(hist_years[-1]) + i) for i in range(1, years + 1)]
                       if hist_years else [f"Year {i}" for i in range(1, years + 1)])
@@ -633,7 +785,7 @@ def render_company(c, ticker: str) -> None:
         )
 
     # ---- Scenarios & what-if ----------------------------------------------
-    with tabs[2]:
+    with t_scen:
         st.markdown("#### Three scenarios")
         scenario_cards(
             scen, c.price, rate_name.split(" (")[0],
@@ -647,10 +799,10 @@ def render_company(c, ticker: str) -> None:
         st.caption("Estimated value per share for a range of required returns (rows) and long-term growth rates (columns).")
         sensitivity_view(sensitivity_table(c, a), c.price, "Return", rate_name.lower())
 
-    with tabs[3]:
+    with t_data:
         company_data_tab(c)
 
-    with tabs[4]:
+    with t_how:
         how_it_works_stock()
 
 
@@ -730,6 +882,8 @@ def render_fund(f: FundData, ticker: str) -> None:
             )
         fund_facts(f)
         fund_holdings(f)
+        st.divider()
+        outlook_tab(f, default_index_assumptions(f), ticker, "fund share")
         return
 
     d = default_index_assumptions(f)
@@ -777,11 +931,11 @@ def render_fund(f: FundData, ticker: str) -> None:
                  f"(after fees), compared with the **{req:.1%}** you asked for.\n\n")
     extra += priced_in_sentence(g_implied, growth, years, terminal, "the companies' combined earnings")
     verdict_box(f.name, r.value_per_share, f.price, r.upside, "fund share", extra)
-    download_button(fund_tables(f, a, r), ticker)
+    download_button(fund_tables(f, a, r, fetch_history(ticker)), ticker)
 
-    tabs = st.tabs(["📊 Overview", "🔮 Forecast", "🎛️ Scenarios & what-if", "🧺 What's inside", "📖 How it works"])
+    t_overview, t_outlook, t_forecast, t_scen, t_inside, t_how = st.tabs(['📊 Overview', '🎯 Price outlook', '🔮 Forecast', '🎛️ Scenarios & what-if', "🧺 What's inside", '📖 How it works'])
 
-    with tabs[0]:
+    with t_overview:
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Estimated value / share", f"${r.value_per_share:,.2f}",
                   help="What the model thinks one share of the fund is worth.")
@@ -822,7 +976,10 @@ def render_fund(f: FundData, ticker: str) -> None:
         )
         price_chart(ticker, f.price, scen, "fund")
 
-    with tabs[1]:
+    with t_outlook:
+        outlook_tab(f, a, ticker, "fund share")
+
+    with t_forecast:
         st.markdown("#### Cash paid to owners per fund share: forecast")
         proj_years = [f"Year {i}" for i in range(1, years + 1)]
         fig = go.Figure()
@@ -852,7 +1009,7 @@ def render_fund(f: FundData, ticker: str) -> None:
             width="stretch",
         )
 
-    with tabs[2]:
+    with t_scen:
         st.markdown("#### Three scenarios")
         scenario_cards(
             scen, f.price, "Required return",
@@ -866,10 +1023,10 @@ def render_fund(f: FundData, ticker: str) -> None:
         st.caption("Estimated value per fund share for a range of required returns (rows) and long-term growth rates (columns).")
         sensitivity_view(index_sensitivity(f, a), f.price, "Return", "required return")
 
-    with tabs[3]:
+    with t_inside:
         fund_holdings(f)
 
-    with tabs[4]:
+    with t_how:
         how_it_works_fund()
 
 

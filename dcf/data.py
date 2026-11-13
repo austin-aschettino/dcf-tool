@@ -70,6 +70,21 @@ class CompanyData:
     industry: str = ""
     analyst_growth: Optional[float] = None   # analysts' next-year earnings growth estimate
     pe: Optional[float] = None
+    dividend_rate: Optional[float] = None    # dollars per share per year
+    target_low: Optional[float] = None       # analysts' 12-month price targets
+    target_mean: Optional[float] = None
+    target_high: Optional[float] = None
+    analyst_count: Optional[int] = None
+    recommendation: str = ""                 # e.g. "buy", "hold", "strong_buy"
+
+    @property
+    def dividend_yield(self) -> float:
+        """Yearly dividend as a fraction of the price (0.003 = 0.3%)."""
+        return (self.dividend_rate or 0.0) / self.price if self.price else 0.0
+
+    @property
+    def has_analyst_targets(self) -> bool:
+        return bool(self.target_mean and self.target_low and self.target_high)
 
     @property
     def net_debt(self) -> float:
@@ -217,4 +232,11 @@ def fetch_company(ticker: str, t: Optional[yf.Ticker] = None, info: Optional[dic
         industry=info.get("industry") or "",
         analyst_growth=_analyst_growth(t),
         pe=_num(info.get("trailingPE")),
+        # Yahoo's "dividendYield" field is in percent for stocks, so derive the yield from the dollar rate instead.
+        dividend_rate=_num(info.get("dividendRate")),
+        target_low=_num(info.get("targetLowPrice")),
+        target_mean=_num(info.get("targetMeanPrice")),
+        target_high=_num(info.get("targetHighPrice")),
+        analyst_count=int(info["numberOfAnalystOpinions"]) if _num(info.get("numberOfAnalystOpinions")) else None,
+        recommendation=(info.get("recommendationKey") or "").replace("_", " "),
     )

@@ -19,6 +19,7 @@ Everything is explained in plain English inside the app, with a 💡 box under e
 | **What's priced in** | The growth rate the current price implies, e.g. *"Apple would need to grow 34% a year for 5 years."* |
 | **Scenarios** | Pessimistic / middle / optimistic estimates, each loadable into the sliders with one click. |
 | **What-if grid** | Value across a range of required returns and long-term growth rates, coloured against the price. |
+| **Price outlook** | Where the price could be in 1, 3 or 5 years: the typical range from past price swings, the model's fair value, and analysts' 12-month targets, with upside and downside for each. |
 | **Price history** | 5 years of prices against the estimate and the scenario range. |
 | **Compare mode** | Up to 6 stocks and funds side by side. |
 | **Excel export** | Download the full report (summary, assumptions, forecast, scenarios, what-if, past data). |
@@ -55,6 +56,7 @@ python main.py AAPL --base latest --growth-source history
 python main.py QQQ --return 0.09 --payout 0.8
 python main.py AZO --export azo.xlsx        # save the report as a spreadsheet
 python main.py AZO --refresh                # ignore saved data and download again
+python main.py AAPL --horizon 3             # price outlook 3 years ahead (1, 3 or 5)
 ```
 
 Run `python main.py --help` for every option.
@@ -80,6 +82,7 @@ dcf/
   fund.py           index-fund data and valuation
   model.py          DCF math, bank handling, warnings, reverse DCF, scenarios
   report.py         summary tables and Excel export
+  outlook.py        price outlook: typical swings, future fair value, analyst targets
   cache.py          on-disk cache of downloaded data (.cache/)
   loader.py         one load() for stocks and funds, plus price history
 tests/              automated tests (pytest)

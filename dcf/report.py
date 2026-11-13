@@ -8,7 +8,7 @@ from __future__ import annotations
 import io
 import math
 from datetime import date
-from typing import Dict
+from typing import Dict, Optional
 
 import pandas as pd
 
@@ -23,6 +23,7 @@ from .fund import (
     run_index_valuation,
 )
 from .model import DCFAssumptions, DCFResult, implied_growth, make_scenarios, run_dcf, sensitivity_table
+from .outlook import company_outlook, fund_outlook
 
 
 def _pct(x) -> str:
@@ -68,7 +69,8 @@ def fund_scenarios(f: FundData, a: IndexAssumptions) -> pd.DataFrame:
 # Report tables
 # --------------------------------------------------------------------------- #
 
-def company_tables(c: CompanyData, a: DCFAssumptions, r: DCFResult) -> Dict[str, pd.DataFrame]:
+def company_tables(c: CompanyData, a: DCFAssumptions, r: DCFResult,
+                   prices: Optional[pd.Series] = None) -> Dict[str, pd.DataFrame]:
     g_implied = implied_growth(c, a)
     method = ("Cash returned to shareholders (dividends + buybacks), discounted at the cost of equity"
               if r.method == "payout" else "Free cash flow, discounted at the WACC")
@@ -104,17 +106,30 @@ def company_tables(c: CompanyData, a: DCFAssumptions, r: DCFResult) -> Dict[str,
     ).set_index("Assumption")
     projection = r.projection_table()
     projection.columns = ["Growth", "Cash flow", "Worth today per $1", "Value in today's money"]
-    return {
+    tables = {
         "Summary": summary,
         "Assumptions": assumptions,
         "Projection": projection,
         "Scenarios": company_scenarios(c, a),
         "What-if (value per share)": sensitivity_table(c, a),
-        "Past financials": c.history(),
     }
+    if prices is not None:
+        tables["Price outlook"] = outlook_sheet(lambda y: company_outlook(c, a, prices, y))
+    tables["Past financials"] = c.history()
+    return tables
 
 
-def fund_tables(f: FundData, a: IndexAssumptions, r: IndexResult) -> Dict[str, pd.DataFrame]:
+def outlook_sheet(make, horizons=(1, 3, 5)) -> pd.DataFrame:
+    """Upside/downside table for several horizons, stacked into one sheet."""
+    frames = []
+    for y in horizons:
+        t = make(y).table().reset_index()
+        t.insert(0, "Horizon (years)", y)
+        frames.append(t)
+    return pd.concat(frames, ignore_index=True).set_index(["Horizon (years)", "Lens", "Outcome"])
+
+
+def fund_tables(f: FundData, a: IndexAssumptions, r: IndexResult, prices: Optional[pd.Series] = None) -> Dict[str, pd.DataFrame]:
     summary = pd.DataFrame(
         [
             ("Fund", f"{f.name} ({f.ticker})"),
@@ -150,6 +165,8 @@ def fund_tables(f: FundData, a: IndexAssumptions, r: IndexResult) -> Dict[str, p
         "Scenarios": fund_scenarios(f, a),
         "What-if (value per share)": index_sensitivity(f, a),
     }
+    if prices is not None:
+        tables["Price outlook"] = outlook_sheet(lambda y: fund_outlook(f, a, prices, y))
     if f.holdings:
         tables["Top holdings"] = f.holdings_table().set_index("Symbol")
     if f.sectors:

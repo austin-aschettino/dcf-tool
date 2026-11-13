@@ -9,6 +9,7 @@ Usage:
     python main.py QQQ --growth 0.08 --return 0.09 --payout 0.8
     python main.py AZO --export azo.xlsx     # save the full report as a spreadsheet
     python main.py AZO --refresh             # ignore saved data and download again
+    python main.py AAPL --horizon 3          # price outlook 3 years ahead
 """
 
 from __future__ import annotations
@@ -32,7 +33,10 @@ from dcf import (
     implied_growth,
     implied_index_growth,
     index_sensitivity,
+    company_outlook,
+    fund_outlook,
     load,
+    price_history,
     run_dcf,
     run_index_valuation,
     sensitivity_table,
@@ -76,6 +80,34 @@ def print_scenarios(table: pd.DataFrame, rate_label: str) -> None:
         index=table.index,
     )
     print(f"\nScenarios\n{t.to_string()}")
+
+
+def print_outlook(o, noun: str) -> None:
+    when = "1 year" if o.years == 1 else f"{o.years} years"
+    print(f"\nPrice outlook in {when}  (today {o.price:,.2f} per {noun})")
+    if o.has_volatility:
+        print(f" Typical yearly swing    +/-{o.volatility:.0%}   (normal return {o.expected_return:.1%}/yr, dividend {o.dividend_yield:.1%})")
+    t = o.table()
+    if t.empty:
+        print(" No outlook available.")
+        return
+    shown = pd.DataFrame(
+        {
+            "Price": t["Price"].map("{:,.2f}".format),
+            "Change": t["Change vs. today"].map(lambda v: "n/a" if pd.isna(v) else f"{v:+.1%}"),
+            "Yearly return": t["Yearly return incl. dividends"].map(lambda v: "n/a" if pd.isna(v) else f"{v:+.1%}"),
+        },
+        index=t.index,
+    )
+    print(shown.to_string())
+    print(" Typical swings: likely = about 2 in 3 outcomes, wide = about 19 in 20. Analyst targets cover 12 months.")
+
+
+def safe_history(ticker: str):
+    try:
+        return price_history(ticker)
+    except Exception:
+        return None
 
 
 def export(tables, path: str) -> None:
@@ -125,6 +157,7 @@ def report_company(c, args) -> int:
         print(f"\n{LINE}")
         print(wrap("No valuation: " + blocking))
         print(LINE)
+        print_outlook(company_outlook(c, a, safe_history(c.ticker), args.horizon), "share")
         print(DISCLAIMER)
         return 0
 
@@ -178,10 +211,12 @@ def report_company(c, args) -> int:
     print(LINE)
 
     print_scenarios(company_scenarios(c, a), rate_label)
+    prices = safe_history(c.ticker)
+    print_outlook(company_outlook(c, a, prices, args.horizon), "share")
     print(f"\nSensitivity: value/share  (rows = {rate_label}, columns = terminal growth)")
     print(fmt_grid(sensitivity_table(c, a), lambda v: f"{v:,.0f}").to_string())
     if args.export:
-        export(company_tables(c, a, r), args.export)
+        export(company_tables(c, a, r, prices), args.export)
     print(DISCLAIMER)
     return 0
 
@@ -278,10 +313,12 @@ def report_fund(f: FundData, args) -> int:
     print(LINE)
 
     print_scenarios(fund_scenarios(f, a), "Required")
+    prices = safe_history(f.ticker)
+    print_outlook(fund_outlook(f, a, prices, args.horizon), "fund share")
     print("\nSensitivity: value/share  (rows = required return, columns = terminal growth)")
     print(fmt_grid(index_sensitivity(f, a), lambda v: f"{v:,.0f}").to_string())
     if args.export:
-        export(fund_tables(f, a, r), args.export)
+        export(fund_tables(f, a, r, prices), args.export)
     print(DISCLAIMER)
     return 0
 
@@ -302,6 +339,8 @@ def main(argv=None) -> int:
                    help="Stocks: default growth from analysts' forecast (default) or past sales growth")
     p.add_argument("--export", metavar="FILE.xlsx", help="Save the full report as an Excel spreadsheet")
     p.add_argument("--refresh", action="store_true", help="Ignore saved data and download fresh numbers")
+    p.add_argument("--horizon", type=int, choices=[1, 3, 5], default=1,
+                   help="Years ahead for the price outlook (default 1)")
     args = p.parse_args(argv)
 
     pd.set_option("display.width", 120)
