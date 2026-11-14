@@ -22,6 +22,15 @@ def _ok(x) -> bool:
     return x is not None and not (isinstance(x, float) and math.isnan(x))
 
 
+def _f(c, name: str) -> Optional[float]:
+    """A ratio from the company data, or None if missing.
+
+    Read with getattr so company data saved by an older version of the app (before these
+    ratios existed) shows "n/a" instead of crashing.
+    """
+    return getattr(c, name, None)
+
+
 @dataclass
 class Check:
     name: str
@@ -63,9 +72,9 @@ def cash_consistency(values: List[float]) -> Optional[float]:
 
 
 def net_debt_to_ebitda(c: CompanyData) -> Optional[float]:
-    if not _ok(c.ebitda) or c.ebitda <= 0:
+    if not _ok(_f(c, "ebitda")) or _f(c, "ebitda") <= 0:
         return None
-    return c.net_debt / c.ebitda
+    return c.net_debt / _f(c, "ebitda")
 
 
 def scorecard(c: CompanyData) -> List[Check]:
@@ -76,10 +85,10 @@ def scorecard(c: CompanyData) -> List[Check]:
     checks: List[Check] = []
     if c.is_financial:
         checks += [
-            Check("Return on equity", _pct(c.return_on_equity), _grade(c.return_on_equity, 0.12, 0.08),
+            Check("Return on equity", _pct(_f(c, "return_on_equity")), _grade(_f(c, "return_on_equity"), 0.12, 0.08),
                   "Profit each year for every $1 shareholders have in the business. The key measure for a bank.",
                   "Strong ≥ 12% · OK ≥ 8%"),
-            Check("Return on assets", _pct(c.return_on_assets), _grade(c.return_on_assets, 0.012, 0.008),
+            Check("Return on assets", _pct(_f(c, "return_on_assets")), _grade(_f(c, "return_on_assets"), 0.012, 0.008),
                   "Profit for every $1 of loans and other assets. Banks earn thin margins on huge balance sheets.",
                   "Strong ≥ 1.2% · OK ≥ 0.8%"),
         ]
@@ -90,13 +99,13 @@ def scorecard(c: CompanyData) -> List[Check]:
         else:
             debt_value = "n/a"
         checks += [
-            Check("Operating margin", _pct(c.operating_margin), _grade(c.operating_margin, 0.20, 0.10),
+            Check("Operating margin", _pct(_f(c, "operating_margin")), _grade(_f(c, "operating_margin"), 0.20, 0.10),
                   "Of every $1 of sales, how much is left after running the business. High margins often mean "
                   "pricing power.", "Strong ≥ 20% · OK ≥ 10%"),
             Check("Free cash flow margin", _pct(fcf_margin(c)), _grade(fcf_margin(c), 0.15, 0.05),
                   "Of every $1 of sales, how much ends up as spare cash for owners after investing in the business.",
                   "Strong ≥ 15% · OK ≥ 5%"),
-            Check("Return on assets", _pct(c.return_on_assets), _grade(c.return_on_assets, 0.10, 0.05),
+            Check("Return on assets", _pct(_f(c, "return_on_assets")), _grade(_f(c, "return_on_assets"), 0.10, 0.05),
                   "Profit for every $1 the company has invested in buildings, equipment, stock and so on.",
                   "Strong ≥ 10% · OK ≥ 5%"),
             Check("Debt load", debt_value, _grade(nd, 1.0, 3.0, higher_is_better=False),
@@ -212,10 +221,10 @@ def fcf_yield(c: CompanyData) -> Optional[float]:
 def multiples(c: CompanyData) -> Dict[str, Optional[float]]:
     return {
         "P/E": c.pe if _ok(c.pe) and c.pe > 0 else None,
-        "Forward P/E": c.forward_pe if _ok(c.forward_pe) and c.forward_pe > 0 else None,
-        "EV/EBITDA": c.ev_to_ebitda if _ok(c.ev_to_ebitda) and c.ev_to_ebitda > 0 else None,
+        "Forward P/E": _f(c, "forward_pe") if _ok(_f(c, "forward_pe")) and _f(c, "forward_pe") > 0 else None,
+        "EV/EBITDA": _f(c, "ev_to_ebitda") if _ok(_f(c, "ev_to_ebitda")) and _f(c, "ev_to_ebitda") > 0 else None,
         "Cash flow yield": fcf_yield(c),
-        "Operating margin": c.operating_margin,
+        "Operating margin": _f(c, "operating_margin"),
         "Sales growth": historical_cagr(c.revenue),
     }
 
@@ -236,10 +245,10 @@ def implied_prices(c: CompanyData, med: Dict[str, Optional[float]]) -> Dict[str,
     out: Dict[str, float] = {}
     if _ok(med.get("P/E")) and _ok(c.pe) and c.pe > 0:
         out["At peers' P/E"] = c.price / c.pe * med["P/E"]
-    if _ok(med.get("Forward P/E")) and _ok(c.forward_pe) and c.forward_pe > 0:
-        out["At peers' forward P/E"] = c.price / c.forward_pe * med["Forward P/E"]
-    if _ok(med.get("EV/EBITDA")) and _ok(c.ebitda) and c.ebitda > 0 and not c.is_financial:
-        out["At peers' EV/EBITDA"] = (c.ebitda * med["EV/EBITDA"] - c.net_debt) / c.shares_outstanding
+    if _ok(med.get("Forward P/E")) and _ok(_f(c, "forward_pe")) and _f(c, "forward_pe") > 0:
+        out["At peers' forward P/E"] = c.price / _f(c, "forward_pe") * med["Forward P/E"]
+    if _ok(med.get("EV/EBITDA")) and _ok(_f(c, "ebitda")) and _f(c, "ebitda") > 0 and not c.is_financial:
+        out["At peers' EV/EBITDA"] = (_f(c, "ebitda") * med["EV/EBITDA"] - c.net_debt) / c.shares_outstanding
     y = fcf_yield(c)
     if _ok(med.get("Cash flow yield")) and med["Cash flow yield"] > 0 and _ok(y) and y > 0:
         out["At peers' cash flow yield"] = c.price * y / med["Cash flow yield"]

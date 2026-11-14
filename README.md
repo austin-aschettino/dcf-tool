@@ -9,7 +9,7 @@ A beginner-friendly tool that estimates what a stock or index fund is worth, bas
 - **Index funds** (VOO, SPY, QQQ, …) are valued as if all their companies were one big business, with an **expected yearly return** at today's price.
 - **Companies that burn cash** get a clear explanation instead of a misleading number.
 
-Everything is explained in plain English inside the app, with a 💡 box under every chart and table.
+Everything is explained in plain English inside the app: every chart and table has a 💡 *What does this mean?* note you can open.
 
 > Educational tool only, not investment advice. Company financial statements come from the SEC's [EDGAR](https://www.sec.gov/edgar) database (the companies' own filings), with Yahoo Finance as a fallback for companies that don't file with the SEC. Share prices, debt and cash, analyst estimates and fund data come from Yahoo Finance via [yfinance](https://github.com/ranaroussi/yfinance) and may be incomplete.
 
@@ -27,7 +27,8 @@ Everything is explained in plain English inside the app, with a 💡 box under e
 | **Price history** | 5 years of prices against the estimate and the scenario range. |
 | **Quality check** | A plain-English scorecard of the business: margins, cash-flow margin, return on assets, debt load, sales growth and how steady the cash is (banks get bank-specific checks). |
 | **Similar companies** | P/E, forward P/E, EV/EBITDA and cash-flow yield next to similar large companies, plus what the share would cost if priced like them. |
-| **My portfolio** | Enter what you own: total value, expected return a year, sector mix (looking inside funds) and which holdings have demanding prices. |
+| **Home page** | A starting point with ticker search, popular tickers, shortcuts to each part of the app and a short guide to how valuation works. |
+| **My portfolio** | Enter what you own (at today's market value): total value, expected return a year, sector mix (looking inside funds), which holdings have demanding prices, and a **future value** calculator with monthly additions and a range of outcomes. |
 | **Compare mode** | Up to 6 stocks and funds side by side. |
 | **Backtest** | Tests the model on history: every year since 2012, value ~70 large companies using only information available at the time, and check whether the "cheap" ones beat the "expensive" ones over the next 12 months. |
 | **Excel export** | Download the full report (summary, assumptions, forecast, scenarios, what-if, past data). |

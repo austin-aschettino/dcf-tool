@@ -54,7 +54,8 @@ from dcf import (
     base_cash,
 )
 from dcf.montecarlo import UNCERTAINTY, simulate_company, simulate_fund
-from dcf.portfolio import EXAMPLE as EXAMPLE_PORTFOLIO, format_holdings, holding_row, parse_holdings, sector_mix, weighted
+from dcf.portfolio import (EXAMPLE as EXAMPLE_PORTFOLIO, format_holdings, holding_row, parse_holdings,
+                           portfolio_volatility, project_value, sector_mix, weighted)
 from dcf.quality import implied_prices, multiples, overall, peer_medians, peer_tickers, scorecard
 
 st.set_page_config(page_title="Stock & Fund Valuation", page_icon="📈", layout="wide")
@@ -63,8 +64,8 @@ st.set_page_config(page_title="Stock & Fund Valuation", page_icon="📈", layout
 # Shareable links: the page address carries the ticker and slider settings
 # --------------------------------------------------------------------------- #
 
-MODES = {"single": "One stock or fund", "compare": "Compare several", "backtest": "Backtest results",
-         "portfolio": "My portfolio"}
+MODES = {"home": "Home", "single": "One stock or fund", "compare": "Compare several",
+         "portfolio": "My portfolio", "backtest": "Backtest results"}
 SHARE: dict = {}   # filled in as the page is drawn, then written to the address bar at the end
 # URL parameter -> widget key (for the current ticker T) and type
 STOCK_PARAMS = {"src": ("src", str), "base": ("base", str), "tg": ("tg", float), "w": ("w", float),
@@ -80,7 +81,7 @@ def seed_from_url() -> None:
     st.session_state["_seeded"] = True
     q = st.query_params
     try:
-        mode = MODES.get(q.get("m", "single"))
+        mode = MODES.get(q.get("m") or ("single" if q.get("t") else "home"))
         if mode:
             st.session_state["mode"] = mode
         if q.get("dark") == "1":
@@ -163,18 +164,12 @@ CSS = """
 .chip.slate  { background: #f1f5f9; color: #334155; border-color: #e2e8f0; }
 
 /* Metric cards with a coloured top edge that changes column by column */
-[data-testid="stMetric"] { background: #fff; border: 1px solid #e3e8f2; border-top: 4px solid var(--accent, #4f46e5);
-    border-radius: 14px; padding: 14px 16px 12px 16px; box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 16px rgba(15,23,42,.05); }
-[data-testid="stColumn"]:nth-child(4n+1) [data-testid="stMetric"] { --accent: #4f46e5; }
-[data-testid="stColumn"]:nth-child(4n+2) [data-testid="stMetric"] { --accent: #0d9488; }
-[data-testid="stColumn"]:nth-child(4n+3) [data-testid="stMetric"] { --accent: #f59e0b; }
-[data-testid="stColumn"]:nth-child(4n+4) [data-testid="stMetric"] { --accent: #7c3aed; }
+[data-testid="stMetric"] { background: #fff; border: 1px solid #e3e8f2; border-radius: 12px; padding: 12px 16px 10px 16px; }
 [data-testid="stMetricLabel"] p { color: #64748b; font-weight: 600; font-size: .85rem; }
 [data-testid="stMetricValue"] { font-weight: 700; color: #0f172a; }
 
 /* Cards: white panels on the light-grey page */
-.st-key-card, [class*="st-key-card_"], [class*="st-key-verdict_"], [class*="st-key-scen_"] {
-    background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06); }
+.st-key-card, [class*="st-key-card_"], [class*="st-key-verdict_"], [class*="st-key-scen_"] { background: #fff; }
 
 /* Verdict cards tinted by the result */
 [class*="st-key-verdict_green"]  { background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 60%); border-left: 6px solid #059669 !important; }
@@ -182,17 +177,17 @@ CSS = """
 [class*="st-key-verdict_orange"] { background: linear-gradient(135deg, #fffbeb 0%, #ffffff 60%); border-left: 6px solid #f59e0b !important; }
 
 /* Scenario cards: red / indigo / teal top edge */
-.st-key-scen_0 { border-top: 5px solid #e11d48 !important; }
-.st-key-scen_1 { border-top: 5px solid #4f46e5 !important; }
-.st-key-scen_2 { border-top: 5px solid #0d9488 !important; }
+.st-key-scen_0 { border-top: 4px solid #e11d48 !important; }
+.st-key-scen_1 { border-top: 4px solid #4f46e5 !important; }
+.st-key-scen_2 { border-top: 4px solid #0d9488 !important; }
 [class*="st-key-scen_"] [data-testid="stMetric"] { box-shadow: none; border: none; padding: 4px 0; background: transparent; }
 
 /* Tabs as pills */
-[data-baseweb="tab-list"] { gap: 2px; background: #fff; padding: 6px; border-radius: 14px; border: 1px solid #e3e8f2;
-    box-shadow: 0 1px 2px rgba(15,23,42,.04); flex-wrap: wrap; }
+[data-baseweb="tab-list"] { gap: 2px; background: #fff; padding: 5px; border-radius: 12px; border: 1px solid #e3e8f2;
+    flex-wrap: wrap; }
 [data-baseweb="tab"] { border-radius: 10px !important; padding: 8px 11px !important; height: auto !important; }
 [data-baseweb="tab"] p { font-weight: 600; color: #475569; font-size: .9rem; }
-[data-baseweb="tab"][aria-selected="true"] { background: linear-gradient(120deg, #4f46e5, #7c3aed); }
+[data-baseweb="tab"][aria-selected="true"] { background: #4f46e5; }
 [data-baseweb="tab"][aria-selected="true"] p { color: #fff !important; }
 [data-baseweb="tab-highlight"], [data-baseweb="tab-border"] { display: none; }
 
@@ -205,12 +200,11 @@ CSS = """
 
 /* Charts and tables sit on white cards */
 [data-testid="stPlotlyChart"], [data-testid="stDataFrame"], [data-testid="stTable"] {
-    background: #fff; border: 1px solid #e3e8f2; border-radius: 14px; padding: 8px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+    background: #fff; border: 1px solid #e3e8f2; border-radius: 12px; padding: 8px; }
 
 /* Buttons */
 [data-testid="stMain"] .stButton button, [data-testid="stDownloadButton"] button { font-weight: 600; }
-[data-testid="stDownloadButton"] button { background: linear-gradient(120deg, #4f46e5, #7c3aed); color: #fff; border: none; }
-[data-testid="stDownloadButton"] button:hover { filter: brightness(1.08); color: #fff; }
+
 
 /* Sidebar brand block */
 .side-brand { display: flex; align-items: center; gap: 10px; padding: 4px 0 14px 0; margin-bottom: 6px;
@@ -224,8 +218,7 @@ CSS = """
 
 /* Quality scorecard cards */
 .qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin: 6px 0 4px 0; }
-.qcard { background: #fff; border: 1px solid #e3e8f2; border-radius: 14px; padding: 14px 16px;
-         box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 16px rgba(15,23,42,.05); }
+.qcard { background: #fff; border: 1px solid #e3e8f2; border-radius: 12px; padding: 14px 16px; }
 .qtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .qname { font-weight: 600; color: #475569; font-size: .88rem; }
 .qval { font-weight: 700; font-size: 1.25rem; color: #0f172a; margin: 4px 0 6px 0; }
@@ -234,6 +227,17 @@ CSS = """
 .badge { border-radius: 999px; padding: 2px 10px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
 .badge.Strong { background: #d1fae5; color: #047857; } .badge.OK { background: #fef3c7; color: #b45309; }
 .badge.Weak { background: #ffe4e6; color: #be123c; } .badge.na { background: #f1f5f9; color: #64748b; }
+
+/* Rows of metrics that hold ranges use slightly smaller numbers so they fit */
+[class*="st-key-compact_"] [data-testid="stMetricValue"] { font-size: 1.55rem; }
+
+/* Explanation boxes: quiet one-line headings */
+[data-testid="stMain"] [data-testid="stExpander"] details { border-color: #e3e8f2; background: transparent; }
+[data-testid="stMain"] [data-testid="stExpander"] summary p { color: #4f46e5; font-weight: 600; font-size: .9rem; }
+
+/* Home page cards */
+.home-card h4 { margin: 0 0 4px 0; padding: 0; }
+.home-card p { color: #64748b; margin: 0; font-size: .92rem; }
 
 /* Phones: a more compact header */
 @media (max-width: 640px) {
@@ -283,6 +287,8 @@ DARK_CSS = """
 .chip.amber  { background: rgba(245,158,11,.15); color: #fde68a; border-color: rgba(245,158,11,.3); }
 .chip.violet { background: rgba(139,92,246,.18); color: #ddd6fe; border-color: rgba(139,92,246,.35); }
 .chip.slate  { background: rgba(148,163,184,.15); color: #e2e8f0; border-color: rgba(148,163,184,.3); }
+[data-testid="stMain"] [data-testid="stExpander"] summary p { color: #a5b4fc !important; }
+.home-card p { color: #94a3b8 !important; }
 .qcard .qmean { color: #cbd5e1 !important; } .qcard .qrule { color: #94a3b8 !important; } .qcard .qname, .qcard .qval { color: #f8fafc !important; }
 </style>
 """
@@ -384,13 +390,15 @@ def esc(s: str) -> str:
 def scale_for(values) -> tuple:
     """Pick billions or millions for chart axes so labels read '$2.0B', not '$2.0G'."""
     biggest = max((abs(v) for v in values if pd.notna(v)), default=0)
+    if biggest >= 1e12:
+        return 1e12, "T"
     return (1e9, "B") if biggest >= 1e9 else (1e6, "M")
 
 
-def explain(text: str) -> None:
-    """A beginner explanation box, shown only while 'Show explanations' is on."""
-    if st.session_state.get("explain", True):
-        st.info(esc(text), icon="💡")
+def explain(text: str, label: str = "What does this mean?") -> None:
+    """A beginner explanation, folded away under a one-line heading until clicked."""
+    with st.expander(f"💡 {label}"):
+        st.markdown(esc(text))
 
 
 def chart_layout(fig: go.Figure, height: int = 380, **kw) -> go.Figure:
@@ -1080,7 +1088,9 @@ def view_switch(options: list, key: str) -> str:
 
 
 def short_money(x: float) -> str:
-    """Compact dollars for tight spaces: $85, $1.2k, $34k."""
+    """Compact dollars for tight spaces: $85, $1.2k, $34k, $1.5M."""
+    if abs(x) >= 1_000_000:
+        return f"${x / 1e6:,.1f}M"
     if abs(x) >= 10_000:
         return f"${x / 1000:,.0f}k"
     if abs(x) >= 1_000:
@@ -1097,7 +1107,7 @@ def probability_view(simulate, price: float, central: float, noun: str, key: str
     ) or "Medium"
     sim = simulate(level)
     q = sim.summary()
-    m1, m2, m3, m4 = st.columns(4)
+    m1, m2, m3, m4 = st.container(key="compact_mc").columns(4)
     m1.metric("Chance it's justified", f"{sim.prob_above_price:.0%}",
               help=f"Share of the 5,000 simulated outcomes where the value is at least today's price (${price:,.2f}).")
     m2.metric("Middle outcome", f"${q['p50']:,.2f}", help="Half of the outcomes are above this, half below.")
@@ -1253,9 +1263,79 @@ def company_tab(c, ticker: str, dcf_value=None) -> None:
 COLOUR_HEX = {"green": TEAL, "orange": AMBER, "red": RED, "grey": GREY}
 
 
+
+MARKET_AVERAGE = 0.10   # long-run average yearly return of US stocks, dividends included (roughly, since 1926)
+DEFAULT_VOLATILITY = 0.15
+
+
+def future_value_view(rows: list, total: float, model_return) -> None:
+    st.markdown("#### What could your portfolio be worth?")
+    c1, c2, c3 = st.columns(3)
+    years = c1.slider("Years from now", 1, 40, 10, key="fv_years")
+    monthly = c2.number_input("Add each month ($)", min_value=0, max_value=1_000_000, value=0, step=50,
+                              key="fv_monthly", help="Money you plan to add every month. 0 if none.")
+    options = {}
+    if model_return is not None and pd.notna(model_return):
+        options[f"The model's estimate ({model_return:.1%})"] = model_return
+    options[f"Stock market's long-run average ({MARKET_AVERAGE:.0%})"] = MARKET_AVERAGE
+    options["Cautious (5%)"] = 0.05
+    options["Choose my own"] = None
+    pick = c3.selectbox("Yearly return to assume", list(options), key="fv_return",
+                        help="The average yearly return, including dividends. The model's estimate is the "
+                             "portfolio's expected return from the At a glance box.")
+    rate = options[pick]
+    if rate is None:
+        rate = st.slider("My yearly return", 0.0, 15.0, 7.0, 0.5, format="%.1f%%", key="fv_custom") / 100
+
+    prices = {r["Ticker"]: fetch_history(r["Ticker"]) for r in rows}
+    vol = portfolio_volatility(prices, {r["Ticker"]: r["Amount"] for r in rows})
+    vol_note = "based on how your holdings moved over the last 3 years"
+    if vol is None or not 0.03 <= vol <= 0.8:
+        vol, vol_note = DEFAULT_VOLATILITY, "a typical figure for a stock portfolio (not enough price history)"
+
+    proj = project_value(total, monthly, years, rate, vol)
+    end = proj.loc[years]
+    m1, m2, m3, m4 = st.container(key="compact_fv").columns(4)
+    m1.metric(f"Middle outcome in {years} yr", short_money(end["p50"]),
+              help=f"Half of the simulated outcomes end above this, half below. Exactly: ${end['p50']:,.0f}.")
+    m2.metric("Likely range (8 in 10)", f"{short_money(end['p10'])} – {short_money(end['p90'])}",
+              help=f"8 in 10 outcomes land between ${end['p10']:,.0f} and ${end['p90']:,.0f}.")
+    m3.metric("You'd put in", short_money(end["put_in"]),
+              help="Today's value plus all the monthly additions.")
+    m4.metric("Growth from investing", short_money(end["p50"] - end["put_in"]),
+              help="Middle outcome minus the money you put in.")
+
+    x = list(proj.index)
+    fig = go.Figure()
+    fig.add_scatter(x=x, y=proj["p90"], mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip")
+    fig.add_scatter(x=x, y=proj["p10"], mode="lines", line=dict(width=0), fill="tonexty",
+                    fillcolor=BLUE_FILL.format(a=0.12), name="8 in 10 outcomes", hoverinfo="skip")
+    fig.add_scatter(x=x, y=proj["p75"], mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip")
+    fig.add_scatter(x=x, y=proj["p25"], mode="lines", line=dict(width=0), fill="tonexty",
+                    fillcolor=BLUE_FILL.format(a=0.25), name="Middle half", hoverinfo="skip")
+    fig.add_scatter(x=x, y=proj["p50"], mode="lines", name="Middle outcome", line=dict(color=BLUE, width=3),
+                    hovertemplate="Year %{x}: $%{y:,.0f}<extra></extra>")
+    fig.add_scatter(x=x, y=proj["put_in"], mode="lines", name="Money put in", line=dict(color=GREY, dash="dash"),
+                    hovertemplate="Year %{x}: $%{y:,.0f} put in<extra></extra>")
+    chart_layout(fig, height=380, hovermode="x unified",
+                 xaxis=dict(title="Years from now", dtick=max(1, years // 10)),
+                 yaxis=dict(tickprefix="$", tickformat=",.0f", rangemode="tozero"))
+    show(fig)
+    explain(
+        f"**How this works:** your portfolio (${total:,.0f} today) is simulated 4,000 times, month by month. Each "
+        f"month it earns a random return that averages **{rate:.1%} a year** and swings about **±{vol:.0%} a year** "
+        f"({vol_note}), then your monthly addition is added.\n\n"
+        "**How to read it:** the dark band holds the middle half of outcomes, the light band 8 in 10. The blue "
+        "line is the middle outcome; the grey dashed line is just the money you put in, so the gap between them "
+        "is what investing added. The range widens over time because good and bad years compound.\n\n"
+        "**Keep in mind:** amounts are in future dollars, not adjusted for inflation (at about 2.5% a year, "
+        f"$1 in {years} years buys what about ${1 / 1.025 ** years:.2f} buys today). Taxes and fees aren't "
+        "included, and real markets can do worse than even the low end. Not investment advice.",
+        "How this works and what it leaves out",
+    )
+
 def render_portfolio() -> None:
-    page_head("My portfolio", [("Your holdings", "indigo"), ("Default assumptions", "teal"),
-                               ("Looks inside funds", "violet")])
+    page_head("My portfolio")
     st.caption("Enter what you own and how much it's worth. Each holding is valued with its default assumptions; "
                "open one in single view to adjust them. Nothing you type is saved anywhere except the page link.")
     if "portfolio" not in st.session_state:
@@ -1322,6 +1402,12 @@ def render_portfolio() -> None:
         b2.metric("Money in demanding prices", f"{stretched_share:.0%}",
                   help="Share of your money in holdings whose price assumes more growth than their track record "
                        "(red in the table below).")
+
+    view = view_switch(["Breakdown", "Future value"], "pf_view")
+    if view == "Future value":
+        future_value_view(rows, total, exp)
+        share_button()
+        return
 
     c1, c2 = st.columns(2, gap="large")
     with c1:
@@ -1399,8 +1485,8 @@ def render_company(c, ticker: str) -> None:
 
     method = ("Valued from cash returned to shareholders (bank method)" if payout
               else "Discounted cash flow (DCF) model")
-    page_head(f"{c.name} ({c.ticker})", [("Stock", "indigo"), (c.sector, "teal"), (c.industry, "slate"),
-                                         (method, "violet"), (f"Prices in {c.currency}", "amber")])
+    page_head(f"{c.name} ({c.ticker})", [("Stock", "indigo"), (c.industry or c.sector, "slate"),
+                                         ("Bank method" if payout else "", "violet")])
 
     # ---- Sidebar ------------------------------------------------------------
     with st.sidebar:
@@ -1433,13 +1519,11 @@ def render_company(c, ticker: str) -> None:
             st.markdown("#### :orange[No valuation for this company]")
             st.write(blocking)
         warnings_box(warnings)
-        t_outlook, t_data, t_how = st.tabs(['🎯 Price outlook', '🏢 Company', '📖 How it works'])
+        t_outlook, t_data = st.tabs(["Price outlook", "Company"])
         with t_outlook:
             outlook_tab(c, d, ticker, "share")
         with t_data:
             company_tab(c, ticker)
-        with t_how:
-            how_it_works_stock()
         return
 
     g_key, tg_key, w_key = k(f"g_{src}_{base}"), k("tg"), k("w")
@@ -1490,7 +1574,8 @@ def render_company(c, ticker: str) -> None:
     verdict_box(c.name, r.value_per_share, c.price, r.upside, "share", tail)
     download_button(company_tables(c, a, r, fetch_history(ticker)), ticker)
 
-    t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_data, t_how = st.tabs(['📊 Overview', '🔁 Reverse DCF', '🎯 Price outlook', '🔮 Forecast', '🎛️ Scenarios & what-if', '🏢 Company', '📖 How it works'])
+    t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_data = st.tabs(
+        ["Overview", "Reverse DCF", "Price outlook", "Forecast", "Scenarios", "Company"])
 
     # ---- Overview ----------------------------------------------------------
     with t_overview:
@@ -1576,7 +1661,7 @@ def render_company(c, ticker: str) -> None:
         fig.add_bar(x=proj_years, y=[v / div for v in r.projected_fcf], name="Forecast", marker_color=BLUE)
         fig.add_scatter(x=proj_years, y=[v / div for v in r.pv_fcf], name="Forecast, in today's money",
                         mode="lines+markers", line=dict(color=AMBER, width=3))
-        chart_layout(fig, yaxis=dict(ticksuffix=unit, tickprefix="$", title=f"$ {'billions' if unit == 'B' else 'millions'}"))
+        chart_layout(fig, yaxis=dict(ticksuffix=unit, tickprefix="$", title=f"$ {dict(T='trillions', B='billions').get(unit, 'millions')}"))
         show(fig)
         what = ("*cash returned to shareholders*: the dividends a company pays plus the shares it buys back. "
                 "For banks it's a steadier and more meaningful measure than free cash flow."
@@ -1633,8 +1718,6 @@ def render_company(c, ticker: str) -> None:
     with t_data:
         company_tab(c, ticker, r.value_per_share)
 
-    with t_how:
-        how_it_works_stock()
 
 
 # --------------------------------------------------------------------------- #
@@ -1701,8 +1784,7 @@ def fund_holdings(f: FundData) -> None:
 
 def render_fund(f: FundData, ticker: str) -> None:
     kind = "Mutual fund" if f.fund_type == "MUTUALFUND" else "ETF"
-    page_head(f"{f.name} ({f.ticker})", [("Index fund", "indigo"), (kind, "teal"), (f.family, "slate"),
-                                         (f.category, "violet"), (f"Fee {f.expense_ratio:.2%} a year", "amber")])
+    page_head(f"{f.name} ({f.ticker})", [("Index fund", "indigo"), (f"Fee {f.expense_ratio:.2%} a year", "slate")])
 
     if not f.can_value:
         with st.container(border=True, key="verdict_orange"):
@@ -1767,7 +1849,8 @@ def render_fund(f: FundData, ticker: str) -> None:
     verdict_box(f.name, r.value_per_share, f.price, r.upside, "fund share", extra)
     download_button(fund_tables(f, a, r, fetch_history(ticker)), ticker)
 
-    t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_inside, t_how = st.tabs(['📊 Overview', '🔁 Reverse valuation', '🎯 Price outlook', '🔮 Forecast', '🎛️ Scenarios & what-if', "🧺 What's inside", '📖 How it works'])
+    t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_inside = st.tabs(
+        ["Overview", "Reverse valuation", "Price outlook", "Forecast", "Scenarios", "What's inside"])
 
     with t_overview:
         m1, m2, m3, m4 = st.columns(4)
@@ -1868,8 +1951,6 @@ def render_fund(f: FundData, ticker: str) -> None:
     with t_inside:
         fund_holdings(f)
 
-    with t_how:
-        how_it_works_fund()
 
 
 # --------------------------------------------------------------------------- #
@@ -1917,7 +1998,7 @@ def render_compare() -> None:
     tickers = list(dict.fromkeys(picks + [x.strip().upper() for x in extra.split(",") if x.strip()]))[:6]
     SHARE["c"] = ",".join(tickers)
 
-    page_head("Compare stocks and funds", [("Side by side", "indigo"), ("Default assumptions", "teal"), ("Up to 6", "slate")])
+    page_head("Compare stocks and funds")
     st.caption("Each one uses its own default assumptions. Open it in single view to adjust them.")
     share_button()
     if not tickers:
@@ -2019,8 +2100,7 @@ def correlation_words(rho: float) -> str:
 def render_backtest() -> None:
     from dcf.backtest import load_results  # imported here so the page loads even if results are missing
 
-    page_head("Backtest: did the model's calls work?", [("History test", "indigo"), ("SEC filings", "teal"),
-                                                          ("~70 large US companies", "slate"), ("No hindsight", "violet")])
+    page_head("Backtest: did the model's calls work?")
     st.caption("Every year, the model valued about 70 large US companies using only information available at the "
                "time, then we checked what their share prices actually did over the next 12 months.")
     share_button()
@@ -2238,7 +2318,7 @@ GLOSSARY = """
 """
 
 
-def how_it_works_stock() -> None:
+def how_it_works_stock(glossary: bool = True) -> None:
     st.markdown("#### How the estimate is made")
     st.markdown(
         """
@@ -2260,17 +2340,18 @@ The idea behind it: **a company is worth the cash it will produce in the future,
     st.markdown("#### Things to keep in mind")
     st.markdown(
         """
-- **It's only as good as the assumptions.** Small changes to the required return or long-term growth can move the answer a lot; the *Scenarios & what-if* tab shows how much.
+- **It's only as good as the assumptions.** Small changes to the required return or long-term growth can move the answer a lot; the *Scenarios* tab shows how much.
 - **"Overvalued" doesn't mean the price will fall.** It means the market expects more growth, or accepts a lower return, than you've assumed. The *growth priced in* figure tells you how much more.
 - **It's simplified.** Professional models forecast sales, costs and investment line by line.
-- Data comes from Yahoo Finance and may be incomplete. This is an educational tool, not investment advice.
+- Figures come from company filings (SEC EDGAR) and Yahoo Finance and may be incomplete. This is an educational tool, not investment advice.
 """
     )
-    st.markdown("#### Glossary")
-    st.markdown(GLOSSARY)
+    if glossary:
+        st.markdown("#### Glossary")
+        st.markdown(GLOSSARY)
 
 
-def how_it_works_fund() -> None:
+def how_it_works_fund(glossary: bool = True) -> None:
     st.markdown("#### How the estimate is made")
     st.markdown(
         """
@@ -2292,20 +2373,91 @@ An index fund has no business of its own, so the model treats **all the companie
 - This is an educational tool, not investment advice.
 """
     )
-    st.markdown("#### Glossary")
-    st.markdown(GLOSSARY)
+    if glossary:
+        st.markdown("#### Glossary")
+        st.markdown(GLOSSARY)
 
 
 # --------------------------------------------------------------------------- #
 # Page
 # --------------------------------------------------------------------------- #
 
+
+# --------------------------------------------------------------------------- #
+# Home
+# --------------------------------------------------------------------------- #
+
+POPULAR = ["AAPL", "MSFT", "NVDA", "AMZN", "KO", "COST", "JPM", "VOO", "QQQ"]
+
+
+def open_ticker(t: str) -> None:
+    """Button callback: show one stock or fund."""
+    t = (t or "").strip().upper()
+    if not t:
+        return
+    st.session_state["mode"] = MODES["single"]
+    if t in TICKERS:
+        st.session_state["list_ticker"] = t
+        st.session_state["custom_ticker"] = ""
+    else:
+        st.session_state["list_ticker"] = None
+        st.session_state["custom_ticker"] = t
+
+
+def open_mode(code: str) -> None:
+    st.session_state["mode"] = MODES[code]
+
+
+def _search_submitted() -> None:
+    open_ticker(st.session_state.get("home_search", ""))
+    st.session_state["home_search"] = ""
+
+
+def popular_row(key: str) -> None:
+    row = st.container(horizontal=True, gap="small")
+    for t in POPULAR:
+        row.button(t, key=f"{key}_{t}", on_click=open_ticker, args=(t,), help=TICKERS.get(t, ""))
+
+
+def render_home() -> None:
+    st.markdown(
+        '<div class="hero"><h1>📈 Stock &amp; Fund Valuation</h1>'
+        "<p>Estimate what a stock or index fund is worth from the cash it's expected to produce, "
+        "and see what today's price is betting on. Built for beginners: every chart explains itself.</p></div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("#### Look up a stock or fund")
+    st.text_input("Ticker", key="home_search", placeholder="Type a ticker and press Enter, e.g. AAPL, HD, VOO",
+                  on_change=_search_submitted, label_visibility="collapsed")
+    st.caption("Or pick a popular one:")
+    popular_row("home_pop")
+
+    st.markdown("#### What you can do")
+    cards = [
+        ("single", "🔎 Value one stock or fund", "See what it's worth, what its price assumes, and how it could move."),
+        ("compare", "⚖️ Compare several", "Put up to six stocks and funds side by side."),
+        ("portfolio", "🧺 My portfolio", "Enter what you own to see your mix, expected return and future value."),
+        ("backtest", "🧪 Does the model work?", "How the model's calls on ~70 companies turned out since 2012."),
+    ]
+    cols = st.columns(4)
+    for col, (code, title, text) in zip(cols, cards):
+        with col, st.container(border=True, key=f"card_home_{code}", height="stretch",
+                               vertical_alignment="distribute"):
+            st.html(f'<div class="home-card"><h4>{html.escape(title)}</h4><p>{html.escape(text)}</p></div>')
+            st.button("Open", key=f"home_open_{code}", on_click=open_mode, args=(code,), width="stretch")
+
+    st.markdown("#### Learn the basics")
+    with st.expander("How a stock is valued (DCF)"):
+        how_it_works_stock(glossary=False)
+    with st.expander("How an index fund is valued"):
+        how_it_works_fund(glossary=False)
+    with st.expander("Glossary of terms"):
+        st.markdown(GLOSSARY)
+    st.caption("For learning purposes only, not investment advice.")
+
 def _picked_from_list():
     st.session_state["custom_ticker"] = ""  # a list choice replaces any typed ticker
 
-
-if "explain" not in st.session_state:
-    st.session_state["explain"] = True
 
 with st.sidebar:
     st.markdown('<div class="side-brand"><div class="logo">📈</div><div><b>Valuation Lab</b>'
@@ -2314,33 +2466,27 @@ with st.sidebar:
                     help="My portfolio: value everything you own at once. Backtest results: how the model's past "
                          "calls actually turned out.")
 mode_code = {v: k for k, v in MODES.items()}[mode]
-if mode_code != "single":
+if mode_code not in ("home", "single"):
     SHARE["m"] = mode_code
 if is_dark():
     SHARE["dark"] = 1
 
-st.markdown(
-    '<div class="hero"><h1>📈 Stock &amp; Fund Valuation</h1>'
-    "<p>Estimate what a stock or index fund is worth, based on the cash it's expected to produce, "
-    "and see what today's price is betting on.</p>"
-    '<div class="pills"><span class="pill">🧮 DCF valuation</span><span class="pill">🧺 Index funds</span>'
-    '<span class="pill">🎯 Price outlook</span><span class="pill">🧪 Backtested on 14 years</span></div></div>',
-    unsafe_allow_html=True,
-)
-
-if mode_code == "compare":
+if mode_code == "home":
+    render_home()
+elif mode_code == "compare":
     render_compare()
 elif mode_code == "backtest":
     render_backtest()
 elif mode_code == "portfolio":
     render_portfolio()
 else:
-    st.session_state.setdefault("list_ticker", "AZO")
     with st.sidebar:
         st.markdown("### 1. Choose a stock or fund")
         choice = st.selectbox(
             "From the list",
             options=list(TICKERS),
+            index=None,
+            placeholder="Search the list…",
             format_func=ticker_label,
             key="list_ticker",
             on_change=_picked_from_list,
@@ -2354,27 +2500,29 @@ else:
         )
     ticker = (custom or choice or "").strip().upper()
 
+    data = None
     if not ticker:
-        st.info("Pick a stock or fund in the sidebar to begin.")
-        st.stop()
-
-    try:
-        with st.spinner(f"Downloading {ticker}'s data from SEC filings and Yahoo Finance… (about 20 seconds the first time)"):
-            data = fetch(ticker)
-    except Exception as e:
-        st.error(f"Couldn't load **{ticker}**: {e}\n\nCheck the ticker is spelled correctly (for example AAPL for Apple).")
-        st.stop()
-
-    if isinstance(data, FundData):
-        render_fund(data, ticker)
+        SHARE["m"] = "single"
+        page_head("Choose a stock or fund")
+        st.markdown("Search the list in the sidebar, type any ticker there, or start with a popular one:")
+        popular_row("single_pop")
     else:
-        render_company(data, ticker)
-    data_freshness(ticker)
+        try:
+            with st.spinner(f"Downloading {ticker}'s data from SEC filings and Yahoo Finance… "
+                            "(about 20 seconds the first time)"):
+                data = fetch(ticker)
+        except Exception as e:
+            st.error(f"Couldn't load **{ticker}**: {e}\n\nCheck the ticker is spelled correctly "
+                     "(for example AAPL for Apple).")
+    if data is not None:
+        if isinstance(data, FundData):
+            render_fund(data, ticker)
+        else:
+            render_company(data, ticker)
+        data_freshness(ticker)
 
 with st.sidebar:
     st.divider()
-    st.toggle("Show beginner explanations", key="explain",
-              help="Shows a 💡 box under each chart and table explaining what it means.")
     st.toggle("🌙 Dark mode", key="dark", help="Switch the page to dark colours.")
 
 st.divider()

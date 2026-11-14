@@ -146,3 +146,46 @@ def test_unvaluable_holding_is_kept_but_not_averaged():
     row = portfolio.holding_row("BURN", 500.0, burner)
     assert row["Expectations"] == "Can't value" and math.isnan(row["Expected return"])
     assert portfolio.weighted([row], "Expected return") is None
+
+
+def test_company_data_from_an_older_app_version_does_not_crash():
+    # Company data saved before the ratio fields existed (e.g. while a server still runs older code).
+    old = SimpleNamespace(
+        ticker="OLD", name="Old Co", price=10.0, pe=15.0, market_cap=1000.0, shares_outstanding=100.0,
+        revenue=[100.0, 110.0], free_cash_flow=[10.0, 12.0], valuation_cash_flow=[10.0, 12.0],
+        net_debt=0.0, is_financial=False, sector="Technology", industry="Software",
+    )
+    grades = {ch.name: ch.grade for ch in quality.scorecard(old)}
+    assert grades["Operating margin"] == "n/a" and grades["Debt load"] == "n/a"
+    m = quality.multiples(old)
+    assert m["Forward P/E"] is None and m["EV/EBITDA"] is None and m["P/E"] == 15.0
+    assert "At peers' P/E" in quality.implied_prices(old, {"P/E": 20.0})
+
+
+def test_future_value_without_swings_matches_compound_growth():
+    proj = portfolio.project_value(10_000, 100, years=10, annual_return=0.07, volatility=0.0, n=10)
+    m = 1.07 ** (1 / 12) - 1
+    expected = 10_000 * 1.07 ** 10 + 100 * sum((1 + m) ** k for k in range(120))
+    assert proj.loc[10, "p50"] == pytest.approx(expected, rel=1e-9)
+    assert proj.loc[10, "steady"] == pytest.approx(expected, rel=1e-9)
+    assert proj.loc[10, "put_in"] == 10_000 + 100 * 120
+    assert list(proj.index) == list(range(11))
+
+
+def test_future_value_range_widens_with_swings():
+    proj = portfolio.project_value(10_000, 0, years=20, annual_return=0.07, volatility=0.16)
+    assert proj.loc[20, "p10"] < proj.loc[20, "p50"] < proj.loc[20, "p90"]
+    assert (proj.loc[20, "p90"] - proj.loc[20, "p10"]) > (proj.loc[5, "p90"] - proj.loc[5, "p10"])
+    # The average outcome matches the steady path; the middle outcome sits a little below it.
+    assert proj.loc[20, "p50"] < proj.loc[20, "steady"]
+
+
+def test_portfolio_volatility_of_offsetting_holdings():
+    import pandas as pd
+    idx = pd.bdate_range("2023-01-02", periods=300)
+    a = pd.Series(np.cumprod([1.01 if i % 2 else 1 / 1.01 for i in range(300)]), index=idx)
+    b = pd.Series(np.cumprod([1 / 1.01 if i % 2 else 1.01 for i in range(300)]), index=idx)
+    alone = portfolio.portfolio_volatility({"A": a}, {"A": 1.0})
+    mixed = portfolio.portfolio_volatility({"A": a, "B": b}, {"A": 0.5, "B": 0.5})
+    assert alone > 0.1 and mixed < alone / 5      # opposite moves largely cancel out
+    assert portfolio.portfolio_volatility({}, {"A": 1.0}) is None

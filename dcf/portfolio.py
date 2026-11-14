@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 from typing import Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import pandas as pd
 
 from .data import CompanyData
@@ -97,3 +98,57 @@ def sector_mix(rows: List[dict]) -> pd.Series:
             name = sector.strip().capitalize() if sector else "Unknown"
             mix[name] = mix.get(name, 0.0) + r["Amount"] * w / total
     return pd.Series(mix).sort_values(ascending=False)
+
+
+# --------------------------------------------------------------------------- #
+# Future value
+# --------------------------------------------------------------------------- #
+
+TRADING_DAYS = 252
+
+
+def portfolio_volatility(prices: Dict[str, pd.Series], weights: Dict[str, float],
+                         days: int = 3 * TRADING_DAYS) -> Optional[float]:
+    """How much the whole portfolio's value has swung in a typical year (standard deviation of yearly return).
+
+    Uses the holdings' daily price moves over the last `days` trading days, combined with their weights,
+    so holdings that move together count more than ones that offset each other.
+    """
+    moves = {t: s.pct_change(fill_method=None) for t, s in prices.items()
+             if t in weights and s is not None and len(s) > 60}
+    if not moves:
+        return None
+    rets = pd.DataFrame(moves).iloc[-days:].dropna(how="all").fillna(0.0)
+    if len(rets) < 60:
+        return None
+    w = np.array([weights[t] for t in rets.columns], dtype=float)
+    w = w / w.sum()
+    daily = (rets * w).sum(axis=1).to_numpy()   # weighted daily move of the whole portfolio
+    return float(np.std(daily, ddof=1) * np.sqrt(TRADING_DAYS))
+
+
+def project_value(start: float, monthly: float, years: int, annual_return: float, volatility: float,
+                  n: int = 4000, seed: int = 11) -> pd.DataFrame:
+    """Simulate the portfolio month by month and summarise each year.
+
+    Each month the value grows by a random return (on average `annual_return` a year, swinging by
+    `volatility` a year) and then `monthly` is added. Returns one row per year (0 = today) with the
+    10th/25th/50th/75th/90th percentiles, the steady-return path and the total money put in.
+    """
+    months = years * 12
+    mean_m = (1 + annual_return) ** (1 / 12) - 1
+    sd = max(volatility, 0.0) / np.sqrt(12)
+    rng = np.random.default_rng(seed)
+    # Log-normal monthly growth whose average equals the requested return.
+    growth = np.exp(rng.normal(np.log1p(mean_m) - sd ** 2 / 2, sd, size=(n, months)))
+    value = np.full(n, float(start))
+    steady = float(start)
+    rows = [dict(year=0, p10=start, p25=start, p50=start, p75=start, p90=start, steady=start, put_in=start)]
+    for m in range(1, months + 1):
+        value = value * growth[:, m - 1] + monthly
+        steady = steady * (1 + mean_m) + monthly
+        if m % 12 == 0:
+            q = np.percentile(value, [10, 25, 50, 75, 90])
+            rows.append(dict(year=m // 12, p10=q[0], p25=q[1], p50=q[2], p75=q[3], p90=q[4],
+                             steady=steady, put_in=start + monthly * m))
+    return pd.DataFrame(rows).set_index("year")
