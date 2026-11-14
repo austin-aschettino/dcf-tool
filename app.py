@@ -41,6 +41,16 @@ from dcf import (
     run_index_valuation,
     sensitivity_table,
     to_xlsx,
+    LONG_RUN_EARNINGS_GROWTH,
+    demand_level,
+    fund_implied_growth_grid,
+    fund_needed_path,
+    growth_benchmarks,
+    implied_discount_rate,
+    implied_growth_grid,
+    needed_path,
+    reference_growth,
+    base_cash,
 )
 
 st.set_page_config(page_title="Stock & Fund Valuation", page_icon="📈", layout="wide")
@@ -92,9 +102,9 @@ CSS = """
     background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06); }
 
 /* Verdict cards tinted by the result */
-.st-key-verdict_green  { background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 60%); border-left: 6px solid #059669 !important; }
-.st-key-verdict_red    { background: linear-gradient(135deg, #fff1f2 0%, #ffffff 60%); border-left: 6px solid #e11d48 !important; }
-.st-key-verdict_orange { background: linear-gradient(135deg, #fffbeb 0%, #ffffff 60%); border-left: 6px solid #f59e0b !important; }
+[class*="st-key-verdict_green"]  { background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 60%); border-left: 6px solid #059669 !important; }
+[class*="st-key-verdict_red"]    { background: linear-gradient(135deg, #fff1f2 0%, #ffffff 60%); border-left: 6px solid #e11d48 !important; }
+[class*="st-key-verdict_orange"] { background: linear-gradient(135deg, #fffbeb 0%, #ffffff 60%); border-left: 6px solid #f59e0b !important; }
 
 /* Scenario cards: red / indigo / teal top edge */
 .st-key-scen_0 { border-top: 5px solid #e11d48 !important; }
@@ -103,10 +113,10 @@ CSS = """
 [class*="st-key-scen_"] [data-testid="stMetric"] { box-shadow: none; border: none; padding: 4px 0; background: transparent; }
 
 /* Tabs as pills */
-[data-baseweb="tab-list"] { gap: 6px; background: #fff; padding: 6px; border-radius: 14px; border: 1px solid #e3e8f2;
+[data-baseweb="tab-list"] { gap: 2px; background: #fff; padding: 6px; border-radius: 14px; border: 1px solid #e3e8f2;
     box-shadow: 0 1px 2px rgba(15,23,42,.04); flex-wrap: wrap; }
-[data-baseweb="tab"] { border-radius: 10px !important; padding: 8px 14px !important; height: auto !important; }
-[data-baseweb="tab"] p { font-weight: 600; color: #475569; }
+[data-baseweb="tab"] { border-radius: 10px !important; padding: 8px 11px !important; height: auto !important; }
+[data-baseweb="tab"] p { font-weight: 600; color: #475569; font-size: .9rem; }
 [data-baseweb="tab"][aria-selected="true"] { background: linear-gradient(120deg, #4f46e5, #7c3aed); }
 [data-baseweb="tab"][aria-selected="true"] p { color: #fff !important; }
 [data-baseweb="tab-highlight"], [data-baseweb="tab-border"] { display: none; }
@@ -699,6 +709,216 @@ def company_data_tab(c, base_amount=None) -> None:
     explain(text)
 
 
+# --------------------------------------------------------------------------- #
+# Reverse DCF
+# --------------------------------------------------------------------------- #
+
+def _rates_around(rate: float, floor: float) -> list:
+    """Required returns 2 points either side of the user's, kept above long-term growth."""
+    return [round(rate + d, 4) for d in (-0.02, -0.01, 0.0, 0.01, 0.02) if rate + d > floor + 0.005]
+
+
+def reverse_verdict(g: float, ref: float, what: str, caption: str) -> None:
+    head, color, text = demand_level(g, ref, what)
+    with st.container(border=True, key=f"verdict_{color}_reverse"):
+        st.markdown(esc(f"#### :{color}[{head}]\n{text}"))
+        st.caption(esc(caption))
+
+
+def growth_bars(rows: list, title: str) -> None:
+    """Horizontal bars: [(label, value, colour)], to set the growth priced in against reality checks."""
+    rows = [r for r in rows if r[1] is not None and pd.notna(r[1])]
+    if not rows:
+        return
+    st.markdown(f"#### {title}")
+    labels = [r[0] for r in rows][::-1]
+    values = [r[1] * 100 for r in rows][::-1]
+    colors = [r[2] for r in rows][::-1]
+    fig = go.Figure(go.Bar(
+        x=values, y=labels, orientation="h", marker_color=colors,
+        text=[f"{v:+.1f}%" for v in values], textposition="outside", cliponaxis=False,
+        hovertemplate="%{y}: %{x:.1f}% a year<extra></extra>",
+    ))
+    lo, hi = min(values + [0]), max(values + [0])
+    pad = max(hi - lo, 5) * 0.18
+    chart_layout(fig, height=70 + 52 * len(rows), showlegend=False, hovermode="closest",
+                 xaxis=dict(ticksuffix="%", range=[lo - (pad if lo < 0 else 0), hi + pad], zeroline=True),
+                 # Size the label margin from the text: Plotly measures labels before the web font loads.
+                 yaxis=dict(automargin=False, ticksuffix="  "),
+                 margin=dict(l=int(7.2 * max(len(t) for t in labels)) + 24, r=30, t=10, b=10))
+    show(fig)
+
+
+def implied_grid_view(grid: pd.DataFrame, ref: float, cur_rate: float, cur_years: int, rate_word: str) -> None:
+    """Table of growth priced in, coloured by how it compares with the realistic yardstick."""
+    def cell_style(v: float) -> str:
+        if pd.isna(v):
+            return ""
+        if v > ref + 0.02:
+            return RED_BG
+        if v < ref - 0.02:
+            return GREEN_BG
+        return "background-color: rgba(245,158,11,0.22)"
+
+    def styles(df: pd.DataFrame) -> pd.DataFrame:
+        out = pd.DataFrame("", index=df.index, columns=df.columns)
+        for i, rate in enumerate(grid.index):
+            for j, yrs in enumerate(grid.columns):
+                css = cell_style(df.iat[i, j])
+                if abs(rate - cur_rate) < 1e-6 and yrs == cur_years:
+                    css += "; " + CURRENT_CELL
+                out.iat[i, j] = css
+        return out
+
+    shown = grid.copy()
+    shown.index = [f"{rate_word} {r:.1%}" for r in grid.index]
+    shown.columns = [f"Over {n} years" for n in grid.columns]
+    st.table(shown.style.format(lambda v: "—" if pd.isna(v) else f"{v:.1%}").apply(styles, axis=None))
+    ref_txt = "n/a" if pd.isna(ref) else f"{ref:.1%}"
+    st.caption(f"🟩 below the yardstick ({ref_txt})  ·  🟧 close to it  ·  🟥 above it  ·  outlined cell = your settings")
+
+
+def reverse_tab_stock(c, a, g_implied: float, cash_name: str, rate_name: str) -> None:
+    rate_short = rate_name.split(" (")[0].lower()
+    st.markdown("#### Working backwards from today's price")
+    explain(
+        "**What a reverse DCF is:** the rest of the app goes *assumptions → value*: you choose growth and a required "
+        "return, and it works out what the stock is worth. A reverse DCF flips that around: it starts from **today's "
+        "price** and asks *what would you have to believe for that price to be fair?*\n\n"
+        "That's often more useful, because nobody knows the right growth rate, but you can judge whether the "
+        "growth the market is betting on looks realistic compared with what the company has actually done."
+    )
+    r_implied = implied_discount_rate(c, a)
+    ref = reference_growth(c)
+    bench = growth_benchmarks(c)
+    reverse_verdict(
+        g_implied, ref, "the company",
+        f"Yardstick = average of past sales growth and analysts' forecast. Uses your {rate_short} of {a.wacc:.1%}, "
+        f"{a.years} forecast years and {a.terminal_growth:.1%} long-term growth; change them in the sidebar.",
+    )
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Growth priced in", pct(g_implied),
+              help=f"The steady yearly growth in {cash_name} for the next {a.years} years that makes the estimate "
+                   "equal today's price.")
+    m2.metric("Your growth assumption", pct(a.growth_rate),
+              delta=(f"{a.growth_rate - g_implied:+.1%} vs. priced in" if pd.notna(g_implied) else None),
+              help="Your 'Growth next year' slider. Positive = you expect more than the price needs.")
+    m3.metric("Return priced in", pct(r_implied),
+              delta=(f"{r_implied - a.wacc:+.1%} vs. your {rate_short.split()[0]}" if pd.notna(r_implied) else None),
+              help="The yearly return you'd earn buying at today's price if your growth assumptions come true. "
+                   f"Higher than your {rate_short} = the stock looks cheap on your assumptions.")
+    m4.metric("Realistic yardstick", pct(ref),
+              help="Average of the company's past sales growth and analysts' forecast for next year.")
+
+    rows = [("Priced in by today's price", g_implied, BLUE), ("Your assumption", a.growth_rate, "#7c3aed")]
+    rows += [(k, v, TEAL if k.startswith("Analysts") else GREY) for k, v in bench.items()]
+    growth_bars(rows, "Growth priced in vs. reality checks")
+    explain(
+        "**How to read it:** the **indigo bar** is the growth the market is betting on. The other bars are reality "
+        "checks: what you assume, how fast sales and cash flow actually grew over the past few years, and what "
+        "analysts expect next year. If the indigo bar is much longer than all of them, the price needs the company "
+        "to beat its own record. If it's shorter, the price asks for less than the company has been delivering."
+    )
+
+    path = needed_path(c, a, g_implied)
+    if path:
+        start = base_cash(c, a.base)
+        hist_years = c.years
+        proj_years = ([str(int(hist_years[-1]) + i) for i in range(1, a.years + 1)]
+                      if hist_years else [f"Year {i}" for i in range(1, a.years + 1)])
+        mine = run_dcf(c, a).projected_fcf
+        div, unit = scale_for(list(c.valuation_cash_flow) + path + mine)
+        st.markdown(f"#### The {cash_name} today's price is counting on")
+        fig = go.Figure()
+        fig.add_bar(x=hist_years, y=[v / div for v in c.valuation_cash_flow], name="Actual (past)", marker_color=GREY)
+        fig.add_bar(x=proj_years, y=[v / div for v in path], name="Needed to justify the price", marker_color=BLUE)
+        fig.add_scatter(x=proj_years, y=[v / div for v in mine], name="Your forecast", mode="lines+markers",
+                        line=dict(color=TEAL, width=3))
+        chart_layout(fig, yaxis=dict(ticksuffix=unit, tickprefix="$"))
+        show(fig)
+        st.markdown(esc(
+            f"To justify **${c.price:,.2f}** a share, {cash_name} would need to reach **{money(path[-1])}** by "
+            f"{proj_years[-1]}: **{path[-1] / start:.1f}×** the starting point of {money(start)}, and then keep "
+            f"growing {a.terminal_growth:.1%} a year after that."
+        ))
+        explain(
+            "**What this shows:** grey bars are what the company actually produced. **Indigo bars** are what it "
+            "would need to produce, growing at the rate priced in, for today's price to be fair. The **teal line** "
+            "is your own forecast from the sidebar. Where the teal line is above the indigo bars, you expect more "
+            "than the price needs; below them, less."
+        )
+
+    st.markdown("#### Growth priced in for other required returns and time frames")
+    years_list = sorted({5, 10, 15, a.years})
+    grid = implied_growth_grid(c, a, _rates_around(a.wacc, a.terminal_growth), years_list)
+    implied_grid_view(grid, ref, a.wacc, a.years, "Return")
+    explain(
+        "**How to read the table:** each cell is the steady yearly growth the price needs, for a different "
+        f"{rate_short} (rows) and forecast length (columns).\n\n"
+        "- Moving **down** (a higher required return) makes the price harder to justify, so the growth needed rises.\n"
+        "- Moving **right** (more years of growth before slowing down) spreads the effort out, so the yearly growth "
+        "needed falls.\n\n"
+        "If most cells are red, the price looks demanding whatever reasonable return you pick; if most are green, "
+        "it asks for less than the company's record."
+    )
+
+
+def reverse_tab_fund(f, a, r, g_implied: float) -> None:
+    st.markdown("#### Working backwards from today's price")
+    explain(
+        "**What a reverse valuation is:** instead of choosing assumptions and working out what the fund is worth, "
+        "it starts from **today's price** and asks *what would the fund's companies have to achieve for that price "
+        "to be fair?* For a broad index fund, the key question is how fast the combined profits of all its "
+        "companies must grow."
+    )
+    ref = LONG_RUN_EARNINGS_GROWTH
+    reverse_verdict(
+        g_implied, ref, "the fund",
+        f"Yardstick = roughly {ref:.0%} a year, the long-run earnings growth of large US companies (including "
+        f"inflation). Uses your required return of {a.required_return:.1%} and {a.years} forecast years.",
+    )
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Earnings growth priced in", pct(g_implied),
+              help=f"The steady yearly profit growth for the next {a.years} years that makes the estimate equal today's price.")
+    m2.metric("Your growth assumption", pct(a.growth_rate),
+              delta=(f"{a.growth_rate - g_implied:+.1%} vs. priced in" if pd.notna(g_implied) else None))
+    m3.metric("Return priced in", pct(r.implied_return),
+              delta=(f"{r.implied_return - a.required_return:+.1%} vs. your target" if pd.notna(r.implied_return) else None),
+              help="The yearly return you'd earn buying at today's price if your growth assumptions come true, after fees.")
+    m4.metric("Long-run yardstick", pct(ref), help="Rough long-run yearly earnings growth of large US companies.")
+
+    growth_bars([("Priced in by today's price", g_implied, BLUE), ("Your assumption", a.growth_rate, "#7c3aed"),
+                 ("Long-run average (large US companies)", ref, GREY)],
+                "Growth priced in vs. reality checks")
+
+    path = fund_needed_path(f, a, g_implied)
+    if path:
+        years = [f"Year {i}" for i in range(1, a.years + 1)]
+        st.markdown("#### Profit per fund share that today's price is counting on")
+        fig = go.Figure()
+        fig.add_bar(x=["Today"], y=[f.earnings_per_share], name="Today", marker_color=GREY)
+        fig.add_bar(x=years, y=path, name="Needed to justify the price", marker_color=BLUE)
+        fig.add_scatter(x=years, y=r.earnings, name="Your forecast", mode="lines+markers", line=dict(color=TEAL, width=3))
+        chart_layout(fig, yaxis=dict(tickprefix="$", title="$ per fund share"))
+        show(fig)
+        st.markdown(esc(
+            f"To justify **${f.price:,.2f}**, the profit behind each fund share would need to grow from "
+            f"**${f.earnings_per_share:,.2f}** today to **${path[-1]:,.2f}** in {a.years} years "
+            f"(**{path[-1] / f.earnings_per_share:.1f}×**)."
+        ))
+
+    st.markdown("#### Growth priced in for other required returns and time frames")
+    grid = fund_implied_growth_grid(f, a, _rates_around(a.required_return, a.terminal_growth),
+                                    sorted({5, 10, 15, 20, a.years}))
+    implied_grid_view(grid, ref, a.required_return, a.years, "Return")
+    explain(
+        "**How to read the table:** each cell is the steady yearly profit growth the price needs, for a different "
+        "required return (rows) and forecast length (columns). Higher required returns need more growth; longer "
+        "time frames need less growth per year."
+    )
+
+
 def render_company(c, ticker: str) -> None:
     k = lambda name: f"{name}__{ticker}"  # widget keys, per ticker so defaults reset on change
     payout = c.is_financial
@@ -795,7 +1015,7 @@ def render_company(c, ticker: str) -> None:
     verdict_box(c.name, r.value_per_share, c.price, r.upside, "share", tail)
     download_button(company_tables(c, a, r, fetch_history(ticker)), ticker)
 
-    t_overview, t_outlook, t_forecast, t_scen, t_data, t_how = st.tabs(['📊 Overview', '🎯 Price outlook', '🔮 Forecast', '🎛️ Scenarios & what-if', '🏢 Company data', '📖 How it works'])
+    t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_data, t_how = st.tabs(['📊 Overview', '🔁 Reverse DCF', '🎯 Price outlook', '🔮 Forecast', '🎛️ Scenarios & what-if', '🏢 Company data', '📖 How it works'])
 
     # ---- Overview ----------------------------------------------------------
     with t_overview:
@@ -860,6 +1080,9 @@ def render_company(c, ticker: str) -> None:
                 "If the second blue bar is much taller than the first, most of the value depends on the distant future."
             )
         price_chart(ticker, c.price, scen, "share")
+
+    with t_reverse:
+        reverse_tab_stock(c, a, g_implied, cash_name, rate_name)
 
     with t_outlook:
         outlook_tab(c, a, ticker, "share")
@@ -1061,7 +1284,7 @@ def render_fund(f: FundData, ticker: str) -> None:
     verdict_box(f.name, r.value_per_share, f.price, r.upside, "fund share", extra)
     download_button(fund_tables(f, a, r, fetch_history(ticker)), ticker)
 
-    t_overview, t_outlook, t_forecast, t_scen, t_inside, t_how = st.tabs(['📊 Overview', '🎯 Price outlook', '🔮 Forecast', '🎛️ Scenarios & what-if', "🧺 What's inside", '📖 How it works'])
+    t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_inside, t_how = st.tabs(['📊 Overview', '🔁 Reverse valuation', '🎯 Price outlook', '🔮 Forecast', '🎛️ Scenarios & what-if', "🧺 What's inside", '📖 How it works'])
 
     with t_overview:
         m1, m2, m3, m4 = st.columns(4)
@@ -1103,6 +1326,9 @@ def render_fund(f: FundData, ticker: str) -> None:
             "line** is the current price: if the green bar is shorter, the model values the fund below its price."
         )
         price_chart(ticker, f.price, scen, "fund")
+
+    with t_reverse:
+        reverse_tab_fund(f, a, r, g_implied)
 
     with t_outlook:
         outlook_tab(f, a, ticker, "fund share")

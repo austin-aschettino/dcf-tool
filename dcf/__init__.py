@@ -38,6 +38,17 @@ from .outlook import (
     cone_path,
     fund_outlook,
 )
+from .reverse import (
+    LONG_RUN_EARNINGS_GROWTH,
+    demand_level,
+    fund_implied_growth_grid,
+    fund_needed_path,
+    growth_benchmarks,
+    implied_discount_rate,
+    implied_growth_grid,
+    needed_path,
+    reference_growth,
+)
 
 __all__ = [
     "load", "price_history", "data_age_hours",
@@ -48,4 +59,6 @@ __all__ = [
     "run_index_valuation", "implied_index_growth", "index_scenarios", "index_sensitivity",
     "company_scenarios", "fund_scenarios", "company_tables", "fund_tables", "to_xlsx",
     "PriceOutlook", "annual_volatility", "build_outlook", "company_outlook", "fund_outlook", "cone_path",
+    "implied_discount_rate", "implied_growth_grid", "fund_implied_growth_grid", "needed_path",
+    "fund_needed_path", "growth_benchmarks", "demand_level", "reference_growth", "LONG_RUN_EARNINGS_GROWTH",
 ]

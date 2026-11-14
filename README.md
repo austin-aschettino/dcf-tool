@@ -17,6 +17,7 @@ Everything is explained in plain English inside the app, with a 💡 box under e
 |---|---|
 | **Plain-English verdict** | "AutoZone looks roughly fairly priced: worth about $3,461, 6% above today's price." |
 | **What's priced in** | The growth rate the current price implies, e.g. *"Apple would need to grow 34% a year for 5 years."* |
+| **Reverse DCF** | Works backwards from today's price: the growth and return the market is betting on, how demanding that is compared with the company's track record, the cash flow the price needs, and a grid of growth priced in for other required returns and time frames. |
 | **Scenarios** | Pessimistic / middle / optimistic estimates, each loadable into the sliders with one click. |
 | **What-if grid** | Value across a range of required returns and long-term growth rates, coloured against the price. |
 | **Price outlook** | Where the price could be in 1, 3 or 5 years: the typical range from past price swings, the model's fair value, and analysts' 12-month targets, with upside and downside for each. |
@@ -111,6 +112,7 @@ dcf/
   data.py           downloads company financials from Yahoo Finance
   fund.py           index-fund data and valuation
   model.py          DCF math, bank handling, warnings, reverse DCF, scenarios
+  reverse.py        reverse DCF: return priced in, growth grids, reality checks
   report.py         summary tables and Excel export
   outlook.py        price outlook: typical swings, future fair value, analyst targets
   sec.py            point-in-time financials from SEC EDGAR (for the backtest)
