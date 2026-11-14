@@ -5,6 +5,7 @@ Run with:  streamlit run app.py
 
 from __future__ import annotations
 
+import html
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
@@ -45,6 +46,123 @@ from dcf import (
 st.set_page_config(page_title="Stock & Fund Valuation", page_icon="📈", layout="wide")
 
 # --------------------------------------------------------------------------- #
+# Styling (colours and fonts live in .streamlit/config.toml; this adds cards and the header)
+# --------------------------------------------------------------------------- #
+
+CSS = """
+<style>
+/* Page width and spacing */
+[data-testid="stMainBlockContainer"] { padding-top: 2.2rem; max-width: 1320px; }
+
+/* Hero banner */
+.hero { background: linear-gradient(120deg, #4338ca 0%, #6d28d9 48%, #0891b2 100%); border-radius: 20px;
+        padding: 26px 30px; color: #fff; margin-bottom: 8px; position: relative; overflow: hidden;
+        box-shadow: 0 10px 30px rgba(67,56,202,.25); }
+.hero::after { content: ""; position: absolute; right: -60px; top: -80px; width: 260px; height: 260px;
+               border-radius: 50%; background: rgba(255,255,255,.10); }
+.hero h1 { color: #fff !important; font-size: 2.1rem; margin: 0 0 4px 0; padding: 0; line-height: 1.15; }
+.hero p { color: rgba(255,255,255,.88); margin: 0; font-size: 1.02rem; }
+.hero .pills { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+.hero .pill { background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.25); border-radius: 999px;
+              padding: 3px 12px; font-size: .82rem; font-weight: 600; }
+
+/* Page title for a stock/fund/page with coloured chips */
+.page-head { margin: 18px 0 6px 0; }
+.page-head h2 { margin: 0 0 8px 0; padding: 0; font-size: 1.85rem; }
+.chip { display: inline-block; border-radius: 999px; padding: 3px 11px; margin: 0 6px 6px 0;
+        font-size: .8rem; font-weight: 600; border: 1px solid transparent; }
+.chip.indigo { background: #eef2ff; color: #4338ca; border-color: #e0e7ff; }
+.chip.teal   { background: #f0fdfa; color: #0f766e; border-color: #ccfbf1; }
+.chip.amber  { background: #fffbeb; color: #b45309; border-color: #fef3c7; }
+.chip.violet { background: #f5f3ff; color: #6d28d9; border-color: #ede9fe; }
+.chip.slate  { background: #f1f5f9; color: #334155; border-color: #e2e8f0; }
+
+/* Metric cards with a coloured top edge that changes column by column */
+[data-testid="stMetric"] { background: #fff; border: 1px solid #e3e8f2; border-top: 4px solid var(--accent, #4f46e5);
+    border-radius: 14px; padding: 14px 16px 12px 16px; box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 16px rgba(15,23,42,.05); }
+[data-testid="stColumn"]:nth-child(4n+1) [data-testid="stMetric"] { --accent: #4f46e5; }
+[data-testid="stColumn"]:nth-child(4n+2) [data-testid="stMetric"] { --accent: #0d9488; }
+[data-testid="stColumn"]:nth-child(4n+3) [data-testid="stMetric"] { --accent: #f59e0b; }
+[data-testid="stColumn"]:nth-child(4n+4) [data-testid="stMetric"] { --accent: #7c3aed; }
+[data-testid="stMetricLabel"] p { color: #64748b; font-weight: 600; font-size: .85rem; }
+[data-testid="stMetricValue"] { font-weight: 700; color: #0f172a; }
+
+/* Cards: white panels on the light-grey page */
+.st-key-card, [class*="st-key-card_"], [class*="st-key-verdict_"], [class*="st-key-scen_"] {
+    background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06); }
+
+/* Verdict cards tinted by the result */
+.st-key-verdict_green  { background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 60%); border-left: 6px solid #059669 !important; }
+.st-key-verdict_red    { background: linear-gradient(135deg, #fff1f2 0%, #ffffff 60%); border-left: 6px solid #e11d48 !important; }
+.st-key-verdict_orange { background: linear-gradient(135deg, #fffbeb 0%, #ffffff 60%); border-left: 6px solid #f59e0b !important; }
+
+/* Scenario cards: red / indigo / teal top edge */
+.st-key-scen_0 { border-top: 5px solid #e11d48 !important; }
+.st-key-scen_1 { border-top: 5px solid #4f46e5 !important; }
+.st-key-scen_2 { border-top: 5px solid #0d9488 !important; }
+[class*="st-key-scen_"] [data-testid="stMetric"] { box-shadow: none; border: none; padding: 4px 0; background: transparent; }
+
+/* Tabs as pills */
+[data-baseweb="tab-list"] { gap: 6px; background: #fff; padding: 6px; border-radius: 14px; border: 1px solid #e3e8f2;
+    box-shadow: 0 1px 2px rgba(15,23,42,.04); flex-wrap: wrap; }
+[data-baseweb="tab"] { border-radius: 10px !important; padding: 8px 14px !important; height: auto !important; }
+[data-baseweb="tab"] p { font-weight: 600; color: #475569; }
+[data-baseweb="tab"][aria-selected="true"] { background: linear-gradient(120deg, #4f46e5, #7c3aed); }
+[data-baseweb="tab"][aria-selected="true"] p { color: #fff !important; }
+[data-baseweb="tab-highlight"], [data-baseweb="tab-border"] { display: none; }
+
+/* Section headings in the main area get a small coloured marker */
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] h4:not([class*="verdict"]) { font-weight: 700; }
+[data-testid="stMain"] [data-testid="stHeadingWithActionElements"] h4::before {
+    content: ""; display: inline-block; width: 6px; height: 1.05em; margin-right: 10px; vertical-align: -2px;
+    border-radius: 3px; background: linear-gradient(180deg, #4f46e5, #0891b2); }
+[class*="st-key-verdict_"] [data-testid="stHeadingWithActionElements"] h4::before { display: none; }
+
+/* Charts and tables sit on white cards */
+[data-testid="stPlotlyChart"], [data-testid="stDataFrame"], [data-testid="stTable"] {
+    background: #fff; border: 1px solid #e3e8f2; border-radius: 14px; padding: 8px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+
+/* Buttons */
+[data-testid="stMain"] .stButton button, [data-testid="stDownloadButton"] button { font-weight: 600; }
+[data-testid="stDownloadButton"] button { background: linear-gradient(120deg, #4f46e5, #7c3aed); color: #fff; border: none; }
+[data-testid="stDownloadButton"] button:hover { filter: brightness(1.08); color: #fff; }
+
+/* Sidebar brand block */
+.side-brand { display: flex; align-items: center; gap: 10px; padding: 4px 0 14px 0; margin-bottom: 6px;
+              border-bottom: 1px solid #2b3560; }
+.side-brand .logo { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; font-size: 20px;
+                    background: linear-gradient(135deg, #6366f1, #06b6d4); }
+.side-brand b { color: #fff; font-size: 1.02rem; display: block; line-height: 1.2; }
+.side-brand span { color: #9aa6c9; font-size: .78rem; }
+[data-testid="stSidebar"] h3 { color: #c7d2fe !important; font-size: .95rem !important; text-transform: uppercase;
+                               letter-spacing: .05em; margin-top: .6rem; }
+
+/* Phones: a more compact header */
+@media (max-width: 640px) {
+    .hero { padding: 18px 18px; border-radius: 16px; }
+    .hero h1 { font-size: 1.45rem; }
+    .hero p { font-size: .9rem; }
+    .hero .pill { font-size: .74rem; padding: 2px 9px; }
+    .page-head h2 { font-size: 1.4rem; }
+}
+
+/* Footer */
+.footer { text-align: center; color: #64748b; font-size: .82rem; padding: 10px 0 4px 0; }
+</style>
+"""
+st.markdown(CSS, unsafe_allow_html=True)
+
+
+def chips_html(chips) -> str:
+    """[(text, colour)] -> coloured pill labels."""
+    return "".join(f'<span class="chip {c}">{html.escape(t)}</span>' for t, c in chips if t)
+
+
+def page_head(title: str, chips=()) -> None:
+    st.markdown(f'<div class="page-head"><h2>{html.escape(title)}</h2>{chips_html(chips)}</div>',
+                unsafe_allow_html=True)
+
+# --------------------------------------------------------------------------- #
 # Ticker list
 # --------------------------------------------------------------------------- #
 
@@ -78,14 +196,15 @@ TICKERS = {
 }
 FUND_TICKERS = {"VOO", "SPY", "VTI", "QQQ", "VFIAX", "SCHD", "VXUS", "BND"}
 
-BLUE = "#2563eb"
+BLUE = "#4f46e5"      # indigo: the app's main colour
 GREY = "#94a3b8"
 AMBER = "#f59e0b"
-TEAL = "#0f766e"
-RED = "#dc2626"
-GREEN_BG = "background-color: rgba(22,163,74,0.28)"
-RED_BG = "background-color: rgba(220,38,38,0.22)"
-CURRENT_CELL = "font-weight: 800; outline: 3px solid #2563eb; outline-offset: -3px"
+TEAL = "#0d9488"
+RED = "#e11d48"
+BLUE_FILL = "rgba(79,70,229,{a})"
+GREEN_BG = "background-color: rgba(5,150,105,0.20)"
+RED_BG = "background-color: rgba(225,29,72,0.16)"
+CURRENT_CELL = "font-weight: 800; outline: 3px solid #4f46e5; outline-offset: -3px"
 NO_TOOLBAR = {"displayModeBar": False}
 SCENARIO_ICONS = {"Pessimistic": "🌧️", "Middle (your settings)": "⛅", "Optimistic": "☀️"}
 TRADING_DAYS_1Y = 252
@@ -136,12 +255,21 @@ def explain(text: str) -> None:
 def chart_layout(fig: go.Figure, height: int = 380, **kw) -> go.Figure:
     layout = dict(
         height=height,
+        font=dict(family="Inter, sans-serif", color="#334155"),
+        paper_bgcolor="#ffffff", plot_bgcolor="#ffffff",
+        xaxis=dict(gridcolor="#eef1f6"), yaxis=dict(gridcolor="#eef1f6"),
+        hoverlabel=dict(font=dict(family="Inter, sans-serif")),
         margin=dict(l=10, r=10, t=40, b=10),
         legend=dict(orientation="h", y=-0.18, x=0),
         hovermode="x unified",
     )
+    for axis in ("xaxis", "yaxis"):  # merge axis settings so callers keep the grid colour
+        if axis in kw:
+            kw[axis] = {**layout[axis], **kw[axis]}
     layout.update(kw)  # callers can override any default
     fig.update_layout(**layout)
+    fig.update_xaxes(zerolinecolor="#e3e8f2")
+    fig.update_yaxes(zerolinecolor="#e3e8f2")
     return fig
 
 
@@ -217,7 +345,7 @@ def verdict_box(name: str, value: float, price: float, upside: float, noun: str,
         where = "almost exactly the same as"
     else:
         where = f"{abs(upside):.0%} {'above' if upside > 0 else 'below'}"
-    with st.container(border=True):
+    with st.container(border=True, key=f"verdict_{color}"):
         st.markdown(
             esc(
                 f"#### :{color}[{name} {tone}]\n"
@@ -303,8 +431,8 @@ def scenario_cards(table: pd.DataFrame, price: float, rate_label: str, apply_key
     apply_keys(row) returns {session_state_key: slider_value} for that scenario.
     """
     cols = st.columns(3)
-    for col, (name, row) in zip(cols, table.iterrows()):
-        with col, st.container(border=True):
+    for i, (col, (name, row)) in enumerate(zip(cols, table.iterrows())):
+        with col, st.container(border=True, key=f"scen_{i}"):
             st.markdown(f"**{SCENARIO_ICONS.get(name, '')} {name}**")
             st.metric("Value / share", f"${row['Value / share']:,.2f}", delta=f"{row['Gap vs. price']:+.1%} vs. price")
             lines = (f"Growth next year **{row['Growth next year']:.1%}**  \n"
@@ -340,7 +468,7 @@ def price_chart(ticker: str, price: float, scen: pd.DataFrame, noun: str) -> Non
     fig = go.Figure()
     x0, x1 = hist.index.min(), hist.index.max()
     fig.add_shape(type="rect", x0=x0, x1=x1, y0=min(lo, hi), y1=max(lo, hi),
-                  fillcolor="rgba(37,99,235,0.10)", line_width=0, layer="below")
+                  fillcolor=BLUE_FILL.format(a=0.10), line_width=0, layer="below")
     fig.add_scatter(x=hist.index, y=hist.values, name="Share price", mode="lines", line=dict(color=GREY, width=2))
     fig.add_scatter(x=[x0, x1], y=[mid, mid], name="Estimated value (your settings)", mode="lines",
                     line=dict(color=BLUE, width=3, dash="dash"))
@@ -429,7 +557,7 @@ def outlook_tab(data, a, ticker: str, noun: str) -> None:
         )
     elif not is_fund:
         parts.append("🏦 **Analysts:** Yahoo Finance has no analyst price targets for this stock.")
-    with st.container(border=True):
+    with st.container(border=True, key="card_outlook"):
         st.markdown(esc(f"Today's price: **${o.price:,.2f}** per {noun}.\n\n" + "\n\n".join(parts)))
 
     # ---- Fan chart -----------------------------------------------------------
@@ -442,11 +570,11 @@ def outlook_tab(data, a, ticker: str, noun: str) -> None:
         fig.add_scatter(x=path.index, y=path["wide_high"], mode="lines", line=dict(width=0),
                         showlegend=False, hoverinfo="skip")
         fig.add_scatter(x=path.index, y=path["wide_low"], mode="lines", line=dict(width=0), fill="tonexty",
-                        fillcolor="rgba(37,99,235,0.10)", name="Wide range (19 in 20)", hoverinfo="skip")
+                        fillcolor=BLUE_FILL.format(a=0.10), name="Wide range (19 in 20)", hoverinfo="skip")
         fig.add_scatter(x=path.index, y=path["likely_high"], mode="lines", line=dict(width=0),
                         showlegend=False, hoverinfo="skip")
         fig.add_scatter(x=path.index, y=path["likely_low"], mode="lines", line=dict(width=0), fill="tonexty",
-                        fillcolor="rgba(37,99,235,0.25)", name="Likely range (2 in 3)", hoverinfo="skip")
+                        fillcolor=BLUE_FILL.format(a=0.25), name="Likely range (2 in 3)", hoverinfo="skip")
         fig.add_scatter(x=path.index, y=path["center"], mode="lines", name="Middle (normal return)",
                         line=dict(color=BLUE, dash="dash", width=2))
     if not hist.empty:
@@ -494,7 +622,7 @@ def outlook_tab(data, a, ticker: str, noun: str) -> None:
         def tint(v):
             if pd.isna(v):
                 return ""
-            return "color: #15803d" if v >= 0 else "color: #dc2626"
+            return "color: #059669; font-weight: 600" if v >= 0 else "color: #e11d48; font-weight: 600"
 
         style = t.style.format({
             "Price": "${:,.2f}", "Change vs. today": "{:+.1f}%", "Yearly return incl. dividends": "{:+.1f}%",
@@ -577,10 +705,10 @@ def render_company(c, ticker: str) -> None:
     cash_name = "cash returned to shareholders" if payout else "free cash flow"
     rate_name = "Cost of equity" if payout else "Required return (discount rate)"
 
-    st.markdown(f"## {c.name} ({c.ticker})")
-    method = ("valued from cash returned to shareholders (a method suited to banks and insurers)" if payout
-              else "valued with a discounted cash flow (DCF) model")
-    st.caption(f"Stock · {method} · price in {c.currency}")
+    method = ("Valued from cash returned to shareholders (bank method)" if payout
+              else "Discounted cash flow (DCF) model")
+    page_head(f"{c.name} ({c.ticker})", [("Stock", "indigo"), (c.sector, "teal"), (c.industry, "slate"),
+                                         (method, "violet"), (f"Prices in {c.currency}", "amber")])
 
     # ---- Sidebar ------------------------------------------------------------
     with st.sidebar:
@@ -608,7 +736,7 @@ def render_company(c, ticker: str) -> None:
     blocking, warnings = check_company(c, base)
 
     if blocking:
-        with st.container(border=True):
+        with st.container(border=True, key="verdict_orange"):
             st.markdown("#### :orange[No valuation for this company]")
             st.write(blocking)
         warnings_box(warnings)
@@ -870,12 +998,12 @@ def fund_holdings(f: FundData) -> None:
 
 def render_fund(f: FundData, ticker: str) -> None:
     kind = "Mutual fund" if f.fund_type == "MUTUALFUND" else "ETF"
-    st.markdown(f"## {f.name} ({f.ticker})")
-    st.caption(" · ".join(x for x in ["Index fund", kind, f.family, f.category] if x))
+    page_head(f"{f.name} ({f.ticker})", [("Index fund", "indigo"), (kind, "teal"), (f.family, "slate"),
+                                         (f.category, "violet"), (f"Fee {f.expense_ratio:.2%} a year", "amber")])
 
     if not f.can_value:
-        with st.container(border=True):
-            st.markdown("#### No valuation for this fund")
+        with st.container(border=True, key="verdict_orange"):
+            st.markdown("#### :orange[No valuation for this fund]")
             st.write(
                 "This fund has no P/E ratio, which usually means it holds bonds rather than stocks. The valuation "
                 "model works by valuing the earnings of the companies a fund owns, so it only applies to stock funds."
@@ -1073,7 +1201,7 @@ def render_compare() -> None:
         extra = st.text_input("Add other tickers", placeholder="e.g. HD, DIS (comma-separated)", key="compare_extra")
     tickers = list(dict.fromkeys(picks + [x.strip().upper() for x in extra.split(",") if x.strip()]))[:6]
 
-    st.markdown("## Compare stocks and funds")
+    page_head("Compare stocks and funds", [("Side by side", "indigo"), ("Default assumptions", "teal"), ("Up to 6", "slate")])
     st.caption("Each one uses its own default assumptions. Open it in single view to adjust them.")
     if not tickers:
         st.info("Pick at least one stock or fund in the sidebar.")
@@ -1174,7 +1302,8 @@ def correlation_words(rho: float) -> str:
 def render_backtest() -> None:
     from dcf.backtest import load_results  # imported here so the page loads even if results are missing
 
-    st.markdown("## Backtest: did the model's calls work?")
+    page_head("Backtest: did the model's calls work?", [("History test", "indigo"), ("SEC filings", "teal"),
+                                                          ("~70 large US companies", "slate"), ("No hindsight", "violet")])
     st.caption("Every year, the model valued about 70 large US companies using only information available at the "
                "time, then we checked what their share prices actually did over the next 12 months.")
     signals, summary = load_results()
@@ -1196,7 +1325,7 @@ def render_backtest() -> None:
         verdict, color = "The model's \"cheap\" stocks did worse, on average", "red"
     else:
         verdict, color = "No clear difference between \"cheap\" and \"expensive\" stocks", "orange"
-    with st.container(border=True):
+    with st.container(border=True, key=f"verdict_{color}"):
         st.markdown(esc(
             f"#### :{color}[{verdict}]\n"
             f"Over {n} years ({period}), the third of stocks the model rated **cheapest** returned **{avg[cheap]:.1%} a "
@@ -1461,11 +1590,19 @@ if "explain" not in st.session_state:
     st.session_state["explain"] = True
 
 with st.sidebar:
+    st.markdown('<div class="side-brand"><div class="logo">📈</div><div><b>Valuation Lab</b>'
+                '<span>Stocks &amp; index funds, explained</span></div></div>', unsafe_allow_html=True)
     mode = st.radio("What do you want to do?", ["One stock or fund", "Compare several", "Backtest results"],
                     key="mode", help="Backtest results: how the model's past calls actually turned out.")
 
-st.title("📈 Stock & Fund Valuation")
-st.markdown("Estimate what a stock or index fund is worth, based on the cash it's expected to produce.")
+st.markdown(
+    '<div class="hero"><h1>📈 Stock &amp; Fund Valuation</h1>'
+    "<p>Estimate what a stock or index fund is worth, based on the cash it's expected to produce, "
+    "and see what today's price is betting on.</p>"
+    '<div class="pills"><span class="pill">🧮 DCF valuation</span><span class="pill">🧺 Index funds</span>'
+    '<span class="pill">🎯 Price outlook</span><span class="pill">🧪 Backtested on 14 years</span></div></div>',
+    unsafe_allow_html=True,
+)
 
 if mode == "Compare several":
     render_compare()
@@ -1514,4 +1651,5 @@ with st.sidebar:
               help="Shows a 💡 box under each chart and table explaining what it means.")
 
 st.divider()
-st.caption("Data from Yahoo Finance via yfinance. For learning purposes only, not investment advice.")
+st.markdown('<div class="footer">Data from Yahoo Finance via yfinance and SEC EDGAR · '
+            "For learning purposes only, not investment advice.</div>", unsafe_allow_html=True)

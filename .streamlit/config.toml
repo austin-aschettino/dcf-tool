@@ -7,5 +7,32 @@ headless = true
 [browser]
 gatherUsageStats = false
 
+# ---- Look and feel ----------------------------------------------------------------
+# Light main area with indigo accents; a deep navy sidebar for contrast.
 [theme]
-primaryColor = "#2563eb"
+base = "light"
+primaryColor = "#4f46e5"
+backgroundColor = "#f5f7fb"
+secondaryBackgroundColor = "#eef1f8"
+textColor = "#0f172a"
+borderColor = "#e3e8f2"
+linkColor = "#4f46e5"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+headingFont = "Plus Jakarta Sans:https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap, sans-serif"
+headingFontWeights = [800, 700, 700, 700, 600, 600]
+baseRadius = "0.75rem"
+buttonRadius = "0.6rem"
+showWidgetBorder = true
+blueColor = "#4f46e5"
+greenColor = "#059669"
+redColor = "#e11d48"
+orangeColor = "#f59e0b"
+violetColor = "#7c3aed"
+chartCategoricalColors = ["#4f46e5", "#0d9488", "#f59e0b", "#e11d48", "#7c3aed", "#0ea5e9", "#64748b"]
+
+[theme.sidebar]
+backgroundColor = "#111833"
+secondaryBackgroundColor = "#1c2547"
+textColor = "#e5e9f5"
+primaryColor = "#a5b4fc"
+borderColor = "#2b3560"
