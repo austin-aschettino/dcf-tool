@@ -1,5 +1,7 @@
 # 📈 Stock & Fund Valuation
 
+[![Tests](https://github.com/austin-aschettino/dcf-tool/actions/workflows/tests.yml/badge.svg)](https://github.com/austin-aschettino/dcf-tool/actions/workflows/tests.yml)
+
 A beginner-friendly tool that estimates what a stock or index fund is worth, based on the cash it's expected to produce. It comes as an interactive web dashboard (Streamlit) and a command-line report.
 
 - **Stocks** are valued with a discounted cash flow (DCF) model: forecast the company's free cash flow, convert it to today's money, subtract debt, divide by shares.
@@ -9,7 +11,7 @@ A beginner-friendly tool that estimates what a stock or index fund is worth, bas
 
 Everything is explained in plain English inside the app, with a 💡 box under every chart and table.
 
-> Educational tool only, not investment advice. Data comes from Yahoo Finance via [yfinance](https://github.com/ranaroussi/yfinance) and may be incomplete.
+> Educational tool only, not investment advice. Company financial statements come from the SEC's [EDGAR](https://www.sec.gov/edgar) database (the companies' own filings), with Yahoo Finance as a fallback for companies that don't file with the SEC. Share prices, debt and cash, analyst estimates and fund data come from Yahoo Finance via [yfinance](https://github.com/ranaroussi/yfinance) and may be incomplete.
 
 ## Features
 
@@ -19,12 +21,18 @@ Everything is explained in plain English inside the app, with a 💡 box under e
 | **What's priced in** | The growth rate the current price implies, e.g. *"Apple would need to grow 34% a year for 5 years."* |
 | **Reverse DCF** | Works backwards from today's price: the growth and return the market is betting on, how demanding that is compared with the company's track record, the cash flow the price needs, and a grid of growth priced in for other required returns and time frames. |
 | **Scenarios** | Pessimistic / middle / optimistic estimates, each loadable into the sliders with one click. |
+| **Probability view** | Runs the valuation 5,000 times with assumptions drawn around yours, and shows the range of values and the chance today's price is justified. |
 | **What-if grid** | Value across a range of required returns and long-term growth rates, coloured against the price. |
 | **Price outlook** | Where the price could be in 1, 3 or 5 years: the typical range from past price swings, the model's fair value, and analysts' 12-month targets, with upside and downside for each. |
 | **Price history** | 5 years of prices against the estimate and the scenario range. |
+| **Quality check** | A plain-English scorecard of the business: margins, cash-flow margin, return on assets, debt load, sales growth and how steady the cash is (banks get bank-specific checks). |
+| **Similar companies** | P/E, forward P/E, EV/EBITDA and cash-flow yield next to similar large companies, plus what the share would cost if priced like them. |
+| **My portfolio** | Enter what you own: total value, expected return a year, sector mix (looking inside funds) and which holdings have demanding prices. |
 | **Compare mode** | Up to 6 stocks and funds side by side. |
 | **Backtest** | Tests the model on history: every year since 2012, value ~70 large companies using only information available at the time, and check whether the "cheap" ones beat the "expensive" ones over the next 12 months. |
 | **Excel export** | Download the full report (summary, assumptions, forecast, scenarios, what-if, past data). |
+| **Shareable links** | The page address holds the ticker and slider settings, so a link opens the exact same view. The 🔗 Share button copies it. |
+| **Dark mode** | A toggle at the bottom of the sidebar. |
 | **Fast reloads** | Downloaded data is saved for 12 hours, so reopening a ticker is instant. |
 
 ## Getting started
@@ -109,7 +117,10 @@ Index funds use the same idea on the fund's combined earnings (price ÷ P/E), th
 app.py              Streamlit dashboard
 main.py             command-line report
 dcf/
-  data.py           downloads company financials from Yahoo Finance
+  data.py           company financials (SEC EDGAR statements, Yahoo prices and ratios)
+  quality.py        business quality scorecard and similar-company comparison
+  montecarlo.py     probability view (thousands of valuations with varied assumptions)
+  portfolio.py      portfolio valuation and sector mix
   fund.py           index-fund data and valuation
   model.py          DCF math, bank handling, warnings, reverse DCF, scenarios
   reverse.py        reverse DCF: return priced in, growth grids, reality checks
@@ -132,6 +143,8 @@ python -m pytest
 ```
 
 The tests use small made-up companies with answers you can check by hand, for example "$100 a year forever at 10% is worth $1,000", so they run offline in about a second.
+
+They also run automatically on GitHub after every push (see the **Actions** tab); the badge at the top shows whether the latest run passed.
 
 ## Sharing it online (free)
 

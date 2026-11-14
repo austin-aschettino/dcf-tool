@@ -6,6 +6,7 @@ Run with:  streamlit run app.py
 from __future__ import annotations
 
 import html
+from urllib.parse import urlencode
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
@@ -52,8 +53,82 @@ from dcf import (
     reference_growth,
     base_cash,
 )
+from dcf.montecarlo import UNCERTAINTY, simulate_company, simulate_fund
+from dcf.portfolio import EXAMPLE as EXAMPLE_PORTFOLIO, format_holdings, holding_row, parse_holdings, sector_mix, weighted
+from dcf.quality import implied_prices, multiples, overall, peer_medians, peer_tickers, scorecard
 
 st.set_page_config(page_title="Stock & Fund Valuation", page_icon="📈", layout="wide")
+
+# --------------------------------------------------------------------------- #
+# Shareable links: the page address carries the ticker and slider settings
+# --------------------------------------------------------------------------- #
+
+MODES = {"single": "One stock or fund", "compare": "Compare several", "backtest": "Backtest results",
+         "portfolio": "My portfolio"}
+SHARE: dict = {}   # filled in as the page is drawn, then written to the address bar at the end
+# URL parameter -> widget key (for the current ticker T) and type
+STOCK_PARAMS = {"src": ("src", str), "base": ("base", str), "tg": ("tg", float), "w": ("w", float),
+                "y": ("y", int), "f": ("f", bool)}
+FUND_PARAMS = {"fg": ("fg", float), "ftg": ("ftg", float), "fr": ("fr", float), "fp": ("fp", float),
+               "fy": ("fy", int), "ff": ("ff", bool)}
+
+
+def seed_from_url() -> None:
+    """On a visitor's first page load, copy settings from the link into the widgets."""
+    if st.session_state.get("_seeded"):
+        return
+    st.session_state["_seeded"] = True
+    q = st.query_params
+    try:
+        mode = MODES.get(q.get("m", "single"))
+        if mode:
+            st.session_state["mode"] = mode
+        if q.get("dark") == "1":
+            st.session_state["dark"] = True
+        if q.get("c"):
+            picks = [t.strip().upper() for t in q["c"].split(",") if t.strip()][:6]
+            st.session_state["compare_list"] = [t for t in picks if t in TICKERS]
+            st.session_state["compare_extra"] = ", ".join(t for t in picks if t not in TICKERS)
+        if q.get("p"):
+            st.session_state["portfolio"] = q["p"]
+        t = (q.get("t") or "").strip().upper()
+        if not t:
+            return
+        if t in TICKERS:
+            st.session_state["list_ticker"] = t
+        else:
+            st.session_state["custom_ticker"] = t
+        for name, (key, kind) in {**STOCK_PARAMS, **FUND_PARAMS}.items():
+            if name in q:
+                st.session_state[f"{key}__{t}"] = (q[name] == "1") if kind is bool else kind(q[name])
+        if "g" in q:
+            src, base = q.get("src", "analyst"), q.get("base", "avg3")
+            st.session_state[f"g_{src}_{base}__{t}"] = float(q["g"])
+    except (ValueError, TypeError):
+        pass   # a mangled link just opens the default view
+
+
+def share_url() -> str:
+    base = (st.context.url or "").split("?")[0] or "http://localhost:8501/"
+    return base + ("?" + urlencode(SHARE) if SHARE else "")
+
+
+def share_button() -> None:
+    with st.popover("🔗 Share", help="Get a link that opens this exact view."):
+        st.markdown("**Link to this exact view**")
+        st.code(share_url(), language=None, wrap_lines=True)
+        st.caption("Anyone who opens it sees the same stock or fund and the same slider settings. "
+                   "The address bar always holds the latest link too.")
+
+
+def sync_url() -> None:
+    params = {k: str(v) for k, v in SHARE.items()}
+    if st.query_params.to_dict() != params:
+        st.query_params.from_dict(params)
+
+
+def is_dark() -> bool:
+    return bool(st.session_state.get("dark"))
 
 # --------------------------------------------------------------------------- #
 # Styling (colours and fonts live in .streamlit/config.toml; this adds cards and the header)
@@ -147,6 +222,19 @@ CSS = """
 [data-testid="stSidebar"] h3 { color: #c7d2fe !important; font-size: .95rem !important; text-transform: uppercase;
                                letter-spacing: .05em; margin-top: .6rem; }
 
+/* Quality scorecard cards */
+.qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin: 6px 0 4px 0; }
+.qcard { background: #fff; border: 1px solid #e3e8f2; border-radius: 14px; padding: 14px 16px;
+         box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 16px rgba(15,23,42,.05); }
+.qtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.qname { font-weight: 600; color: #475569; font-size: .88rem; }
+.qval { font-weight: 700; font-size: 1.25rem; color: #0f172a; margin: 4px 0 6px 0; }
+.qmean { color: #475569; font-size: .84rem; line-height: 1.4; }
+.qrule { color: #94a3b8; font-size: .76rem; margin-top: 6px; }
+.badge { border-radius: 999px; padding: 2px 10px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
+.badge.Strong { background: #d1fae5; color: #047857; } .badge.OK { background: #fef3c7; color: #b45309; }
+.badge.Weak { background: #ffe4e6; color: #be123c; } .badge.na { background: #f1f5f9; color: #64748b; }
+
 /* Phones: a more compact header */
 @media (max-width: 640px) {
     .hero { padding: 18px 18px; border-radius: 16px; }
@@ -160,7 +248,45 @@ CSS = """
 .footer { text-align: center; color: #64748b; font-size: .82rem; padding: 10px 0 4px 0; }
 </style>
 """
-st.markdown(CSS, unsafe_allow_html=True)
+DARK_CSS = """
+<style>
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stBottomBlockContainer"] { background: #0b1020 !important; }
+[data-testid="stMain"] { color: #e2e8f0; }
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] p, [data-testid="stMain"] [data-testid="stMarkdownContainer"] li,
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] td, [data-testid="stMain"] [data-testid="stMarkdownContainer"] th,
+[data-testid="stMain"] label, [data-testid="stMain"] [data-testid="stWidgetLabel"] p { color: #e2e8f0; }
+[data-testid="stMain"] h1, [data-testid="stMain"] h2, [data-testid="stMain"] h3, [data-testid="stMain"] h4, .page-head h2 { color: #f8fafc !important; }
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p, .footer { color: #94a3b8 !important; }
+[data-testid="stMetric"], .st-key-card, [class*="st-key-card_"], [class*="st-key-verdict_"], [class*="st-key-scen_"],
+[data-baseweb="tab-list"], [data-testid="stPlotlyChart"], [data-testid="stTable"], [data-testid="stExpander"] details,
+.qcard { background: #141b34 !important; border-color: #263056 !important; box-shadow: none !important; }
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] div { color: #f8fafc !important; }
+[data-testid="stMetricLabel"] p { color: #94a3b8 !important; }
+[data-testid="stMetricDelta"] { filter: brightness(1.6) saturate(1.2); }
+[class*="st-key-verdict_green"]  { background: linear-gradient(135deg, rgba(5,150,105,.22) 0%, #141b34 65%) !important; }
+[class*="st-key-verdict_red"]    { background: linear-gradient(135deg, rgba(225,29,72,.20) 0%, #141b34 65%) !important; }
+[class*="st-key-verdict_orange"] { background: linear-gradient(135deg, rgba(245,158,11,.20) 0%, #141b34 65%) !important; }
+[data-baseweb="tab"] p { color: #cbd5e1; }
+[class*="st-key-verdict_green"] .stMarkdownColoredText { color: #34d399 !important; }
+[class*="st-key-verdict_red"] .stMarkdownColoredText { color: #fb7185 !important; }
+[class*="st-key-verdict_orange"] .stMarkdownColoredText { color: #fbbf24 !important; }
+[data-testid="stTable"] table, [data-testid="stTable"] th, [data-testid="stTable"] td { color: #e2e8f0 !important; border-color: #263056 !important; background-color: transparent; }
+/* Data grids are drawn on a canvas, so they're darkened with a colour inversion that keeps red and green. */
+[data-testid="stDataFrame"], [data-testid="stDataEditor"] { filter: invert(0.9) hue-rotate(180deg); background: #ffffff !important; }
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p, [data-testid="stAlert"] [data-testid="stMarkdownContainer"] li { color: #dbe2ff !important; }
+[data-testid="stMain"] .stButton button, [data-testid="stPopover"] button, [data-testid="stButtonGroup"] button {
+    background: #141b34; color: #e2e8f0; border-color: #2f3a66; }
+[data-testid="stPopoverBody"] { background: #141b34 !important; color: #e2e8f0; }
+[data-testid="stMain"] hr { border-color: #263056; }
+.chip.indigo { background: rgba(99,102,241,.18); color: #c7d2fe; border-color: rgba(99,102,241,.35); }
+.chip.teal   { background: rgba(20,184,166,.15); color: #99f6e4; border-color: rgba(20,184,166,.3); }
+.chip.amber  { background: rgba(245,158,11,.15); color: #fde68a; border-color: rgba(245,158,11,.3); }
+.chip.violet { background: rgba(139,92,246,.18); color: #ddd6fe; border-color: rgba(139,92,246,.35); }
+.chip.slate  { background: rgba(148,163,184,.15); color: #e2e8f0; border-color: rgba(148,163,184,.3); }
+.qcard .qmean { color: #cbd5e1 !important; } .qcard .qrule { color: #94a3b8 !important; } .qcard .qname, .qcard .qval { color: #f8fafc !important; }
+</style>
+"""
+
 
 
 def chips_html(chips) -> str:
@@ -205,6 +331,11 @@ TICKERS = {
     "BND": "Vanguard Total Bond Market ETF",
 }
 FUND_TICKERS = {"VOO", "SPY", "VTI", "QQQ", "VFIAX", "SCHD", "VXUS", "BND"}
+
+seed_from_url()
+st.markdown(CSS, unsafe_allow_html=True)
+if is_dark():
+    st.markdown(DARK_CSS, unsafe_allow_html=True)
 
 BLUE = "#4f46e5"      # indigo: the app's main colour
 GREY = "#94a3b8"
@@ -265,21 +396,29 @@ def explain(text: str) -> None:
 def chart_layout(fig: go.Figure, height: int = 380, **kw) -> go.Figure:
     layout = dict(
         height=height,
-        font=dict(family="Inter, sans-serif", color="#334155"),
-        paper_bgcolor="#ffffff", plot_bgcolor="#ffffff",
-        xaxis=dict(gridcolor="#eef1f6"), yaxis=dict(gridcolor="#eef1f6"),
+        font=dict(family="Inter, sans-serif", color="#cbd5e1" if is_dark() else "#334155"),
+        paper_bgcolor="#141b34" if is_dark() else "#ffffff", plot_bgcolor="#141b34" if is_dark() else "#ffffff",
+        xaxis=dict(gridcolor="#263056" if is_dark() else "#eef1f6"), yaxis=dict(gridcolor="#263056" if is_dark() else "#eef1f6"),
         hoverlabel=dict(font=dict(family="Inter, sans-serif")),
         margin=dict(l=10, r=10, t=40, b=10),
         legend=dict(orientation="h", y=-0.18, x=0),
         hovermode="x unified",
     )
-    for axis in ("xaxis", "yaxis"):  # merge axis settings so callers keep the grid colour
-        if axis in kw:
-            kw[axis] = {**layout[axis], **kw[axis]}
+    text = "#cbd5e1" if is_dark() else "#334155"
+    layout["legend"]["font"] = dict(color=text)
+    for axis in ("xaxis", "yaxis"):
+        layout[axis].update(tickfont=dict(color=text), title=dict(font=dict(color=text)))
+    for part in ("xaxis", "yaxis", "legend"):  # merge so callers keep the colours above
+        if part in kw:
+            extra = dict(kw[part])
+            if isinstance(extra.get("title"), str):
+                extra["title"] = dict(text=extra["title"], font=dict(color=text))
+            kw[part] = {**layout[part], **extra}
     layout.update(kw)  # callers can override any default
     fig.update_layout(**layout)
-    fig.update_xaxes(zerolinecolor="#e3e8f2")
-    fig.update_yaxes(zerolinecolor="#e3e8f2")
+    zero = "#33406e" if is_dark() else "#e3e8f2"
+    fig.update_xaxes(zerolinecolor=zero)
+    fig.update_yaxes(zerolinecolor=zero)
     return fig
 
 
@@ -386,18 +525,23 @@ def warnings_box(warnings) -> None:
 
 
 def download_button(tables, ticker: str) -> None:
+    """The Excel download and the share link, side by side."""
     try:
         data = to_xlsx(tables)
     except Exception as e:  # never break the page over an export problem
         st.caption(f"Report download unavailable: {e}")
+        share_button()
         return
-    st.download_button(
+    row = st.container(horizontal=True, gap="small")
+    row.download_button(
         "⬇️ Download full report (Excel)",
         data=data,
         file_name=f"{ticker}-valuation-{date.today().isoformat()}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         help="A spreadsheet with the summary, assumptions, forecast, scenarios, what-if grid and past data.",
     )
+    with row:
+        share_button()
 
 
 def sensitivity_view(sens: pd.DataFrame, price: float, rows_label: str, rows_explain: str) -> None:
@@ -688,6 +832,9 @@ def company_data_tab(c, base_amount=None) -> None:
               help="Analysts' consensus estimate of next year's earnings growth, from Yahoo Finance.")
 
     st.markdown("#### Past financials")
+    src = getattr(c, "statements_source", "Yahoo Finance")
+    st.caption(f"Yearly figures from {src}" + (" (the company's own filings with the SEC)" if src == "SEC EDGAR" else "")
+               + ". Share price, debt and cash from Yahoo Finance.")
     h = c.history().rename(columns=HISTORY_NAMES)
     st.dataframe(h.style.format(lambda v: "n/a" if pd.isna(v) else money(v)), width="stretch")
     text = (
@@ -919,6 +1066,331 @@ def reverse_tab_fund(f, a, r, g_implied: float) -> None:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Probability view
+# --------------------------------------------------------------------------- #
+
+SCEN_VIEWS = ["Three scenarios", "Probability view", "What-if grid"]
+
+
+def view_switch(options: list, key: str) -> str:
+    """A compact row of buttons to switch between parts of a tab (keeps tabs from getting long)."""
+    choice = st.segmented_control("Show", options, default=options[0], key=key, label_visibility="collapsed")
+    return choice or options[0]
+
+
+def short_money(x: float) -> str:
+    """Compact dollars for tight spaces: $85, $1.2k, $34k."""
+    if abs(x) >= 10_000:
+        return f"${x / 1000:,.0f}k"
+    if abs(x) >= 1_000:
+        return f"${x / 1000:.1f}k"
+    return f"${x:,.0f}"
+
+
+def probability_view(simulate, price: float, central: float, noun: str, key: str) -> None:
+    st.markdown("#### How likely is today's price to be justified?")
+    level = st.segmented_control(
+        "How unsure are you about the assumptions?", list(UNCERTAINTY), default="Medium", key=f"mc_level__{key}",
+        help="How far growth, long-term growth and the required return are allowed to wander from your settings. "
+             "Medium: growth ±3 points, required return ±1 point (about 2 in 3 draws stay within that).",
+    ) or "Medium"
+    sim = simulate(level)
+    q = sim.summary()
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Chance it's justified", f"{sim.prob_above_price:.0%}",
+              help=f"Share of the 5,000 simulated outcomes where the value is at least today's price (${price:,.2f}).")
+    m2.metric("Middle outcome", f"${q['p50']:,.2f}", help="Half of the outcomes are above this, half below.")
+    m3.metric("Likely range", f"{short_money(q['p25'])} – {short_money(q['p75'])}",
+              help=f"The middle half of outcomes: ${q['p25']:,.2f} to ${q['p75']:,.2f}.")
+    m4.metric("Wide range (9 in 10)", f"{short_money(q['p5'])} – {short_money(q['p95'])}",
+              help=f"9 in 10 outcomes: ${q['p5']:,.2f} to ${q['p95']:,.2f}.")
+
+    lo, hi = sim.percentile(1), sim.percentile(99)
+    vals = sim.values[(sim.values >= lo) & (sim.values <= hi)]
+    size = (hi - lo) / 60 if hi > lo else 1
+    bins = dict(start=lo, end=hi, size=size)
+    fig = go.Figure()
+    fig.add_histogram(x=vals[vals < price], xbins=bins, name="Below today's price", marker_color=RED, opacity=0.75)
+    fig.add_histogram(x=vals[vals >= price], xbins=bins, name="Above today's price", marker_color=TEAL, opacity=0.75)
+    fig.add_vline(x=price, line_dash="dash", line_color=AMBER, line_width=2,
+                  annotation_text=f"Today ${price:,.0f}", annotation_position="top")
+    fig.add_vline(x=central, line_color=BLUE, line_width=2,
+                  annotation_text=f"Your estimate ${central:,.0f}", annotation_position="bottom right")
+    chart_layout(fig, height=360, barmode="overlay", hovermode="closest",
+                 xaxis=dict(tickprefix="$", tickformat=",.0f", title=f"Estimated value per {noun}"),
+                 yaxis=dict(title="Number of outcomes"))
+    show(fig)
+    explain(
+        "**What this shows:** the valuation run 5,000 times, each time with slightly different growth, long-term "
+        "growth and required return drawn around your settings. Each bar counts how many outcomes landed at that "
+        "value: **teal** ones are above today's price (the price is justified), **red** ones below.\n\n"
+        "**How to read it:** the *chance the price is justified* is the share of teal. Around 50% means the price "
+        "matches your assumptions; much lower means the price needs things to go better than you expect. The "
+        "range is lopsided to the right because small changes in growth or the required return can make the "
+        "value much larger, but it can't fall below zero as easily. The middle 98% of outcomes are drawn."
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Company: snapshot, quality, similar companies
+# --------------------------------------------------------------------------- #
+
+COMPANY_VIEWS = ["Snapshot", "Quality check", "Similar companies"]
+
+
+def quality_view(c) -> None:
+    checks = scorecard(c)
+    label, color, _ = overall(checks)
+    counts = {g: sum(ch.grade == g for ch in checks) for g in ("Strong", "OK", "Weak")}
+    with st.container(border=True, key=f"verdict_{color}_quality"):
+        st.markdown(f"#### :{color}[{label}]")
+        st.markdown(f"**{counts['Strong']} strong**, **{counts['OK']} OK** and **{counts['Weak']} weak** "
+                    f"out of {len(checks)} checks.")
+        st.caption("Quality is about the business, not the share price: a great company can still be too expensive, "
+                   "and a weaker one can be a bargain.")
+    cards = []
+    for ch in checks:
+        badge = "na" if ch.grade == "n/a" else ch.grade
+        cards.append(
+            f'<div class="qcard"><div class="qtop"><span class="qname">{html.escape(ch.name)}</span>'
+            f'<span class="badge {badge}">{html.escape(ch.grade)}</span></div>'
+            f'<div class="qval">{html.escape(ch.value)}</div>'
+            f'<div class="qmean">{html.escape(ch.meaning)}</div>'
+            f'<div class="qrule">{html.escape(ch.rule)}</div></div>'
+        )
+    st.html('<div class="qgrid">' + "".join(cards) + "</div>")
+    st.caption("Margins, returns and EBITDA from Yahoo Finance; sales and cash flow from the yearly figures in the snapshot.")
+
+
+def _load_many(tickers: list) -> dict:
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures = {t: pool.submit(load, t) for t in tickers}
+    out = {}
+    for t, fut in futures.items():
+        try:
+            data = fut.result()
+        except Exception:
+            continue
+        if not isinstance(data, FundData):
+            out[t] = data
+    return out
+
+
+def peers_view(c, dcf_value) -> None:
+    tickers = peer_tickers(c)
+    st.markdown("#### How the price compares with similar companies")
+    if not tickers:
+        st.info("There's no list of similar companies for this industry yet.")
+        return
+    with st.spinner("Loading similar companies… (a few seconds the first time)"):
+        peers = _load_many(tickers)
+    if not peers:
+        st.warning("Couldn't load the similar companies right now.")
+        return
+    med = peer_medians(list(peers.values()))
+    rows = [{"Company": f"▶ {c.name} ({c.ticker})", **multiples(c)}]
+    rows += [{"Company": f"{p.name} ({t})", **multiples(p)} for t, p in peers.items()]
+    rows.append({"Company": "Median of similar companies", **med})
+    table = pd.DataFrame(rows).set_index("Company")
+    pct_cols = ["Cash flow yield", "Operating margin", "Sales growth"]
+    st.dataframe(
+        table, width="stretch",
+        column_config={
+            "P/E": st.column_config.NumberColumn(format="%.1f", help="Price ÷ last year's profit per share."),
+            "Forward P/E": st.column_config.NumberColumn(format="%.1f", help="Price ÷ next year's expected profit per share."),
+            "EV/EBITDA": st.column_config.NumberColumn(format="%.1f", help="Whole-business value (incl. debt) ÷ earnings before interest, tax and depreciation."),
+            **{col: st.column_config.NumberColumn(format="percent") for col in pct_cols},
+        },
+    )
+    implied = implied_prices(c, med)
+    if implied:
+        st.markdown("#### What the share would be worth if priced like its peers")
+        labels = list(implied) + (["Your DCF estimate"] if dcf_value else [])
+        values = list(implied.values()) + ([dcf_value] if dcf_value else [])
+        colors = [TEAL if v >= c.price else RED for v in implied.values()] + ([BLUE] if dcf_value else [])
+        fig = go.Figure(go.Bar(x=values, y=labels, orientation="h", marker_color=colors,
+                               text=[f"${v:,.0f}" for v in values], textposition="outside", cliponaxis=False,
+                               hovertemplate="%{y}: $%{x:,.2f}<extra></extra>"))
+        fig.add_vline(x=c.price, line_dash="dash", line_color=AMBER, line_width=2,
+                      annotation_text=f"Today ${c.price:,.0f}", annotation_position="top")
+        chart_layout(fig, height=80 + 50 * len(labels), showlegend=False, hovermode="closest",
+                     xaxis=dict(tickprefix="$", tickformat=",.0f", range=[0, max(values + [c.price]) * 1.2]),
+                     yaxis=dict(automargin=False, ticksuffix="  "),
+                     margin=dict(l=int(7.2 * max(len(x) for x in labels)) + 24, r=30, t=30, b=10))
+        show(fig)
+        lo, hi = min(implied.values()), max(implied.values())
+        st.markdown(esc(f"Priced like its peers, {c.ticker} would trade between **${lo:,.0f}** and **${hi:,.0f}** "
+                        f"a share, depending on the measure (today: **${c.price:,.2f}**)."))
+    explain(
+        "**What this shows:** a second way to value a company, used by most professionals alongside a DCF: "
+        "compare its price with similar businesses.\n\n"
+        "- **P/E:** dollars paid for each $1 of yearly profit. **Forward P/E** uses next year's expected profit.\n"
+        "- **EV/EBITDA:** the value of the whole business (including debt) compared with its earnings before "
+        "interest, tax and depreciation. Useful when companies have different amounts of debt.\n"
+        "- **Cash flow yield:** yearly free cash flow as a share of the company's market value. Higher = cheaper.\n\n"
+        "**The bars** ask: *if this company were priced like the typical similar company, what would one share "
+        "cost?* Green bars are above today's price, red below. Peers can be expensive or cheap together, and "
+        "faster-growing or more profitable companies usually deserve higher multiples, so this is a sanity check, "
+        "not a verdict."
+    )
+
+
+def company_tab(c, ticker: str, dcf_value=None) -> None:
+    view = view_switch(COMPANY_VIEWS, f"co_view__{ticker}")
+    if view == COMPANY_VIEWS[1]:
+        quality_view(c)
+    elif view == COMPANY_VIEWS[2]:
+        peers_view(c, dcf_value)
+    else:
+        company_data_tab(c)
+
+
+# --------------------------------------------------------------------------- #
+# Portfolio
+# --------------------------------------------------------------------------- #
+
+COLOUR_HEX = {"green": TEAL, "orange": AMBER, "red": RED, "grey": GREY}
+
+
+def render_portfolio() -> None:
+    page_head("My portfolio", [("Your holdings", "indigo"), ("Default assumptions", "teal"),
+                               ("Looks inside funds", "violet")])
+    st.caption("Enter what you own and how much it's worth. Each holding is valued with its default assumptions; "
+               "open one in single view to adjust them. Nothing you type is saved anywhere except the page link.")
+    if "portfolio" not in st.session_state:
+        st.session_state["portfolio"] = EXAMPLE_PORTFOLIO
+    if "pf_start" not in st.session_state:   # the editor's starting table must stay the same between reruns
+        st.session_state["pf_start"] = pd.DataFrame(
+            parse_holdings(st.session_state["portfolio"]) or [("VOO", 1000.0)], columns=["Ticker", "Amount ($)"])
+
+    left, right = st.columns([1, 2], gap="large")
+    with left:
+        st.markdown("#### Your holdings")
+        edited = st.data_editor(
+            st.session_state["pf_start"], num_rows="dynamic", hide_index=True, key="pf_editor", width="stretch",
+            column_config={
+                "Ticker": st.column_config.TextColumn(help="e.g. VOO, AAPL", required=True),
+                "Amount ($)": st.column_config.NumberColumn(min_value=0.0, step=100.0, format="dollar", required=True),
+            },
+        )
+        if st.session_state["portfolio"] == EXAMPLE_PORTFOLIO:
+            st.caption("This is an example. Click a cell to change it, or use the + row to add holdings.")
+    holdings = [(str(t).strip().upper(), float(a)) for t, a in zip(edited["Ticker"], edited["Amount ($)"])
+                if isinstance(t, str) and t.strip() and pd.notna(a) and a > 0]
+    merged: dict = {}
+    for t, a in holdings:
+        merged[t] = merged.get(t, 0.0) + a
+    holdings = list(merged.items())[:15]
+    st.session_state["portfolio"] = format_holdings(holdings)
+    SHARE["p"] = st.session_state["portfolio"]
+    if not holdings:
+        with right:
+            st.info("Add at least one holding on the left.")
+        return
+
+    with st.spinner("Valuing your holdings… (a few seconds for any not loaded recently)"):
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futures = {t: pool.submit(load, t) for t, _ in holdings}
+        rows, failed = [], []
+        for t, amount in holdings:
+            try:
+                rows.append(holding_row(t, amount, futures[t].result()))
+            except Exception:
+                failed.append(t)
+    if failed:
+        st.warning(f"Couldn't load: {', '.join(failed)}. Check the spelling.", icon="⚠️")
+    if not rows:
+        return
+
+    total = sum(r["Amount"] for r in rows)
+    exp = weighted(rows, "Expected return")
+    gap = weighted(rows, "Gap vs. price")
+    stretched = [r for r in rows if r["Colour"] == "red"]
+    stretched_share = sum(r["Amount"] for r in stretched) / total if total else 0
+    with right:
+        st.markdown("#### At a glance")
+        a1, a2 = st.columns(2)
+        a1.metric("Total value", money(total))
+        a2.metric("Expected return a year", pct(exp),
+                  help="Value-weighted average of each holding's return priced in: what you'd earn a year buying "
+                       "at today's prices if the default assumptions come true.")
+        b1, b2 = st.columns(2)
+        b1.metric("Average gap vs. model value", f"{gap:+.1%}" if gap is not None else "n/a",
+                  help="Value-weighted gap between each holding's model value and its price. Negative = priced "
+                       "above the model's estimates.")
+        b2.metric("Money in demanding prices", f"{stretched_share:.0%}",
+                  help="Share of your money in holdings whose price assumes more growth than their track record "
+                       "(red in the table below).")
+
+    c1, c2 = st.columns(2, gap="large")
+    with c1:
+        st.markdown("#### Where your money is")
+        mix = sector_mix(rows).rename(index={"Communication services": "Communication",
+                                              "Financial services": "Financials"})
+        mix = mix.groupby(level=0).sum().sort_values(ascending=False)
+        top = mix.head(7)
+        if len(mix) > 7:
+            top["Other"] = mix.iloc[7:].sum()
+        fig = go.Figure(go.Pie(labels=list(top.index), values=list(top.values), hole=0.55, sort=False,
+                               marker=dict(colors=["#4f46e5", "#0d9488", "#f59e0b", "#e11d48", "#7c3aed",
+                                                   "#0ea5e9", "#64748b", "#94a3b8"]),
+                               textinfo="percent", hovertemplate="%{label}: $%{value:,.0f}<extra></extra>"))
+        chart_layout(fig, height=340, hovermode="closest", legend=dict(orientation="v", x=1.02, y=0.5))
+        show(fig)
+    with c2:
+        st.markdown("#### Expected return by holding")
+        ok = [r for r in rows if pd.notna(r["Expected return"])]
+        fig = go.Figure(go.Bar(
+            x=[r["Expected return"] * 100 for r in ok], y=[r["Ticker"] for r in ok], orientation="h",
+            marker_color=[COLOUR_HEX.get(r["Colour"], GREY) for r in ok],
+            text=[f"{r['Expected return']:.1%}" for r in ok], textposition="outside", cliponaxis=False,
+            hovertemplate="%{y}: %{x:.1f}% a year<extra></extra>"))
+        if exp is not None:
+            fig.add_vline(x=exp * 100, line_dash="dash", line_color=BLUE,
+                          annotation_text=f"Portfolio {exp:.1%}", annotation_position="top")
+        chart_layout(fig, height=340, showlegend=False, hovermode="closest",
+                     xaxis=dict(ticksuffix="%", rangemode="tozero"), yaxis=dict(autorange="reversed"))
+        show(fig)
+
+    table = pd.DataFrame([{k: r[k] for k in ("Ticker", "Name", "Type", "Amount", "Price", "Value / share",
+                                               "Gap vs. price", "Expected return", "Growth priced in",
+                                               "Expectations")} for r in rows])
+    table["Weight"] = table["Amount"] / total
+    table = table[["Ticker", "Name", "Amount", "Weight", "Gap vs. price", "Expected return", "Growth priced in",
+                   "Expectations"]]
+    tone = {r["Ticker"]: r["Colour"] for r in rows}
+
+    def tint(row):
+        bg = {"green": GREEN_BG, "red": RED_BG, "orange": "background-color: rgba(245,158,11,0.22)"}.get(tone[row["Ticker"]], "")
+        return ["" if col != "Expectations" else bg for col in row.index]
+
+    st.markdown("#### Holdings")
+    st.dataframe(
+        table.style.apply(tint, axis=1), hide_index=True, width="stretch",
+        column_config={
+            "Amount": st.column_config.NumberColumn(format="dollar"),
+            "Weight": st.column_config.NumberColumn(format="percent"),
+            "Gap vs. price": st.column_config.NumberColumn(
+                "Gap vs. model", format="percent", help="Model value ÷ price − 1. Negative = priced above the model."),
+            "Expected return": st.column_config.NumberColumn(format="percent"),
+            "Growth priced in": st.column_config.NumberColumn(format="percent"),
+        },
+    )
+    explain(
+        "**How to read this page:**\n"
+        "- **Where your money is** adds up your holdings by sector, *looking inside funds*: $1,000 in an S&P 500 "
+        "fund counts as about $300 in technology, $130 in financials and so on. It shows whether you're more "
+        "concentrated than you think.\n"
+        "- **Expected return** is each holding's *return priced in*: the yearly return you'd earn buying at "
+        "today's price if the default growth assumptions come true. Colours show how demanding the price is "
+        "(green modest, amber in line with the record, red demanding).\n"
+        "- These use default assumptions and simple models, so treat them as a starting point for questions, "
+        "not as forecasts. Not investment advice."
+    )
+    share_button()
+
+
 def render_company(c, ticker: str) -> None:
     k = lambda name: f"{name}__{ticker}"  # widget keys, per ticker so defaults reset on change
     payout = c.is_financial
@@ -951,6 +1423,7 @@ def render_company(c, ticker: str) -> None:
                  "company's most recent performance.",
         )
 
+    SHARE.update(t=ticker, src=src, base=base)
     d = default_assumptions(c, growth_source=src, base=base)
     _, growth_label = default_growth(c, src)
     blocking, warnings = check_company(c, base)
@@ -960,11 +1433,11 @@ def render_company(c, ticker: str) -> None:
             st.markdown("#### :orange[No valuation for this company]")
             st.write(blocking)
         warnings_box(warnings)
-        t_outlook, t_data, t_how = st.tabs(['🎯 Price outlook', '🏢 Company data', '📖 How it works'])
+        t_outlook, t_data, t_how = st.tabs(['🎯 Price outlook', '🏢 Company', '📖 How it works'])
         with t_outlook:
             outlook_tab(c, d, ticker, "share")
         with t_data:
-            company_data_tab(c)
+            company_tab(c, ticker)
         with t_how:
             how_it_works_stock()
         return
@@ -1002,6 +1475,8 @@ def render_company(c, ticker: str) -> None:
                  "Lower long-term growth or raise the required return.")
         st.stop()
 
+    SHARE.update(g=st.session_state[g_key], tg=st.session_state[tg_key], w=st.session_state[w_key], y=years,
+                 f=int(fade))
     a = DCFAssumptions(growth_rate=growth, terminal_growth=terminal, wacc=wacc, years=years, fade=fade, base=base)
     r = run_dcf(c, a)
     g_implied = implied_growth(c, a)
@@ -1015,7 +1490,7 @@ def render_company(c, ticker: str) -> None:
     verdict_box(c.name, r.value_per_share, c.price, r.upside, "share", tail)
     download_button(company_tables(c, a, r, fetch_history(ticker)), ticker)
 
-    t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_data, t_how = st.tabs(['📊 Overview', '🔁 Reverse DCF', '🎯 Price outlook', '🔮 Forecast', '🎛️ Scenarios & what-if', '🏢 Company data', '📖 How it works'])
+    t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_data, t_how = st.tabs(['📊 Overview', '🔁 Reverse DCF', '🎯 Price outlook', '🔮 Forecast', '🎛️ Scenarios & what-if', '🏢 Company', '📖 How it works'])
 
     # ---- Overview ----------------------------------------------------------
     with t_overview:
@@ -1137,21 +1612,26 @@ def render_company(c, ticker: str) -> None:
 
     # ---- Scenarios & what-if ----------------------------------------------
     with t_scen:
-        st.markdown("#### Three scenarios")
-        scenario_cards(
-            scen, c.price, rate_name.split(" (")[0],
-            lambda row: {
-                g_key: slider_value(row["Growth next year"], -10.0, 30.0, 0.5),
-                tg_key: slider_value(row["Long-term growth"], 0.0, 5.0, 0.25),
-                w_key: slider_value(row["Required return"], 4.0, 16.0, 0.25),
-            },
-        )
-        st.markdown("#### What if the assumptions are different?")
-        st.caption("Estimated value per share for a range of required returns (rows) and long-term growth rates (columns).")
-        sensitivity_view(sensitivity_table(c, a), c.price, "Return", rate_name.lower())
+        view = view_switch(SCEN_VIEWS, k("scen_view"))
+        if view == SCEN_VIEWS[0]:
+            st.markdown("#### Three scenarios")
+            scenario_cards(
+                scen, c.price, rate_name.split(" (")[0],
+                lambda row: {
+                    g_key: slider_value(row["Growth next year"], -10.0, 30.0, 0.5),
+                    tg_key: slider_value(row["Long-term growth"], 0.0, 5.0, 0.25),
+                    w_key: slider_value(row["Required return"], 4.0, 16.0, 0.25),
+                },
+            )
+        elif view == SCEN_VIEWS[1]:
+            probability_view(lambda lvl: simulate_company(c, a, level=lvl), c.price, r.value_per_share, "share", ticker)
+        else:
+            st.markdown("#### What if the assumptions are different?")
+            st.caption("Estimated value per share for a range of required returns (rows) and long-term growth rates (columns).")
+            sensitivity_view(sensitivity_table(c, a), c.price, "Return", rate_name.lower())
 
     with t_data:
-        company_data_tab(c)
+        company_tab(c, ticker, r.value_per_share)
 
     with t_how:
         how_it_works_stock()
@@ -1237,6 +1717,7 @@ def render_fund(f: FundData, ticker: str) -> None:
         outlook_tab(f, default_index_assumptions(f), ticker, "fund share")
         return
 
+    SHARE["t"] = ticker
     d = default_index_assumptions(f)
     k = lambda name: f"{name}__{ticker}"
     g_key, tg_key, r_key = k("fg"), k("ftg"), k("fr")
@@ -1271,6 +1752,8 @@ def render_fund(f: FundData, ticker: str) -> None:
         st.error("The required return must be higher than long-term growth, otherwise the value would be infinite.")
         st.stop()
 
+    SHARE.update(fg=st.session_state[g_key], ftg=st.session_state[tg_key], fr=st.session_state[r_key],
+                 fp=st.session_state[k("fp")], fy=years, ff=int(fade))
     a = IndexAssumptions(growth_rate=growth, terminal_growth=terminal, required_return=req, payout=payout, years=years, fade=fade)
     r = run_index_valuation(f, a)
     g_implied = implied_index_growth(f, a)
@@ -1364,18 +1847,23 @@ def render_fund(f: FundData, ticker: str) -> None:
         )
 
     with t_scen:
-        st.markdown("#### Three scenarios")
-        scenario_cards(
-            scen, f.price, "Required return",
-            lambda row: {
-                g_key: slider_value(row["Growth next year"], -5.0, 15.0, 0.25),
-                tg_key: slider_value(row["Long-term growth"], 0.0, 6.0, 0.25),
-                r_key: slider_value(row["Required return"], 4.0, 16.0, 0.25),
-            },
-        )
-        st.markdown("#### What if the assumptions are different?")
-        st.caption("Estimated value per fund share for a range of required returns (rows) and long-term growth rates (columns).")
-        sensitivity_view(index_sensitivity(f, a), f.price, "Return", "required return")
+        view = view_switch(SCEN_VIEWS, k("scen_view"))
+        if view == SCEN_VIEWS[0]:
+            st.markdown("#### Three scenarios")
+            scenario_cards(
+                scen, f.price, "Required return",
+                lambda row: {
+                    g_key: slider_value(row["Growth next year"], -5.0, 15.0, 0.25),
+                    tg_key: slider_value(row["Long-term growth"], 0.0, 6.0, 0.25),
+                    r_key: slider_value(row["Required return"], 4.0, 16.0, 0.25),
+                },
+            )
+        elif view == SCEN_VIEWS[1]:
+            probability_view(lambda lvl: simulate_fund(f, a, level=lvl), f.price, r.value_per_share, "fund share", ticker)
+        else:
+            st.markdown("#### What if the assumptions are different?")
+            st.caption("Estimated value per fund share for a range of required returns (rows) and long-term growth rates (columns).")
+            sensitivity_view(index_sensitivity(f, a), f.price, "Return", "required return")
 
     with t_inside:
         fund_holdings(f)
@@ -1418,17 +1906,20 @@ def compare_row(t: str, data) -> dict:
 
 
 def render_compare() -> None:
+    st.session_state.setdefault("compare_list", ["VOO", "QQQ", "AAPL", "JPM"])
     with st.sidebar:
         st.markdown("### 1. Choose up to 6 to compare")
         picks = st.multiselect(
-            "From the list", options=list(TICKERS), default=["VOO", "QQQ", "AAPL", "JPM"],
+            "From the list", options=list(TICKERS),
             format_func=ticker_label, max_selections=6, key="compare_list",
         )
         extra = st.text_input("Add other tickers", placeholder="e.g. HD, DIS (comma-separated)", key="compare_extra")
     tickers = list(dict.fromkeys(picks + [x.strip().upper() for x in extra.split(",") if x.strip()]))[:6]
+    SHARE["c"] = ",".join(tickers)
 
     page_head("Compare stocks and funds", [("Side by side", "indigo"), ("Default assumptions", "teal"), ("Up to 6", "slate")])
     st.caption("Each one uses its own default assumptions. Open it in single view to adjust them.")
+    share_button()
     if not tickers:
         st.info("Pick at least one stock or fund in the sidebar.")
         return
@@ -1532,6 +2023,7 @@ def render_backtest() -> None:
                                                           ("~70 large US companies", "slate"), ("No hindsight", "violet")])
     st.caption("Every year, the model valued about 70 large US companies using only information available at the "
                "time, then we checked what their share prices actually did over the next 12 months.")
+    share_button()
     signals, summary = load_results()
     if summary is None or signals is None or not summary.get("yearly"):
         st.info("No backtest results yet. Run `python run_backtest.py` in the project folder, then reload this page.")
@@ -1818,8 +2310,14 @@ if "explain" not in st.session_state:
 with st.sidebar:
     st.markdown('<div class="side-brand"><div class="logo">📈</div><div><b>Valuation Lab</b>'
                 '<span>Stocks &amp; index funds, explained</span></div></div>', unsafe_allow_html=True)
-    mode = st.radio("What do you want to do?", ["One stock or fund", "Compare several", "Backtest results"],
-                    key="mode", help="Backtest results: how the model's past calls actually turned out.")
+    mode = st.radio("What do you want to do?", list(MODES.values()), key="mode",
+                    help="My portfolio: value everything you own at once. Backtest results: how the model's past "
+                         "calls actually turned out.")
+mode_code = {v: k for k, v in MODES.items()}[mode]
+if mode_code != "single":
+    SHARE["m"] = mode_code
+if is_dark():
+    SHARE["dark"] = 1
 
 st.markdown(
     '<div class="hero"><h1>📈 Stock &amp; Fund Valuation</h1>'
@@ -1830,17 +2328,19 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if mode == "Compare several":
+if mode_code == "compare":
     render_compare()
-elif mode == "Backtest results":
+elif mode_code == "backtest":
     render_backtest()
+elif mode_code == "portfolio":
+    render_portfolio()
 else:
+    st.session_state.setdefault("list_ticker", "AZO")
     with st.sidebar:
         st.markdown("### 1. Choose a stock or fund")
         choice = st.selectbox(
             "From the list",
             options=list(TICKERS),
-            index=list(TICKERS).index("AZO"),
             format_func=ticker_label,
             key="list_ticker",
             on_change=_picked_from_list,
@@ -1859,7 +2359,7 @@ else:
         st.stop()
 
     try:
-        with st.spinner(f"Downloading {ticker}'s financial data from Yahoo Finance… (about 20 seconds the first time)"):
+        with st.spinner(f"Downloading {ticker}'s data from SEC filings and Yahoo Finance… (about 20 seconds the first time)"):
             data = fetch(ticker)
     except Exception as e:
         st.error(f"Couldn't load **{ticker}**: {e}\n\nCheck the ticker is spelled correctly (for example AAPL for Apple).")
@@ -1875,7 +2375,9 @@ with st.sidebar:
     st.divider()
     st.toggle("Show beginner explanations", key="explain",
               help="Shows a 💡 box under each chart and table explaining what it means.")
+    st.toggle("🌙 Dark mode", key="dark", help="Switch the page to dark colours.")
 
 st.divider()
-st.markdown('<div class="footer">Data from Yahoo Finance via yfinance and SEC EDGAR · '
+st.markdown('<div class="footer">Company filings from SEC EDGAR · prices and fund data from Yahoo Finance · '
             "For learning purposes only, not investment advice.</div>", unsafe_allow_html=True)
+sync_url()
