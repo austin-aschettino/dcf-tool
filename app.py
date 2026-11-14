@@ -213,8 +213,34 @@ CSS = """
                     background: linear-gradient(135deg, #6366f1, #06b6d4); }
 .side-brand b { color: #fff; font-size: 1.02rem; display: block; line-height: 1.2; }
 .side-brand span { color: #9aa6c9; font-size: .78rem; }
-[data-testid="stSidebar"] h3 { color: #c7d2fe !important; font-size: .95rem !important; text-transform: uppercase;
-                               letter-spacing: .05em; margin-top: .6rem; }
+[data-testid="stSidebar"] h3 { color: #c7d2fe !important; font-size: .8rem !important; text-transform: uppercase;
+                               letter-spacing: .06em; margin-top: .4rem; }
+.side-label { color: #8b97bf; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+              margin: 2px 0 4px 4px; }
+
+/* Sidebar menu: full-width rows, the current page highlighted */
+[data-testid="stSidebar"] [class*="st-key-nav_"] button { justify-content: flex-start; border: none !important;
+    background: transparent; padding: 7px 12px; min-height: 0; border-radius: 10px; }
+[data-testid="stSidebar"] [class*="st-key-nav_"] button p { color: #cbd5e1; font-weight: 500; font-size: .95rem; }
+[data-testid="stSidebar"] [class*="st-key-nav_"] button:hover { background: rgba(255,255,255,.07); }
+[data-testid="stSidebar"] [class*="st-key-nav_"] [data-testid="stBaseButton-primary"] {
+    background: rgba(129,140,248,.22) !important; box-shadow: inset 3px 0 0 #a5b4fc; }
+[data-testid="stSidebar"] [class*="st-key-nav_"] [data-testid="stBaseButton-primary"] p { color: #ffffff; font-weight: 700; }
+[data-testid="stSidebar"] [class*="st-key-nav_"] { margin-bottom: -10px; }
+
+/* "Home ›" link above page titles */
+.st-key-crumb { margin-bottom: -14px; }
+.st-key-crumb button p { color: #4f46e5; font-weight: 600; font-size: .9rem; }
+.crumb-sep { color: #94a3b8; } .crumb-here { color: #64748b; font-size: .9rem; }
+
+/* Home page */
+.st-key-card_search { background: #fff; border-color: #c7d2fe !important; }
+.st-key-card_search h4 { margin-top: 0; }
+.pop-label { color: #64748b; font-size: .82rem; font-weight: 600; margin: 6px 0 2px 0; }
+.step { display: flex; gap: 12px; align-items: flex-start; }
+.step .num { flex: 0 0 30px; height: 30px; border-radius: 50%; background: #eef2ff; color: #4338ca; font-weight: 800;
+             display: grid; place-items: center; }
+.step b { display: block; color: #0f172a; margin-bottom: 2px; } .step span { color: #64748b; font-size: .9rem; }
 
 /* Quality scorecard cards */
 .qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin: 6px 0 4px 0; }
@@ -289,6 +315,10 @@ DARK_CSS = """
 .chip.slate  { background: rgba(148,163,184,.15); color: #e2e8f0; border-color: rgba(148,163,184,.3); }
 [data-testid="stMain"] [data-testid="stExpander"] summary p { color: #a5b4fc !important; }
 .home-card p { color: #94a3b8 !important; }
+.st-key-card_search { background: #141b34 !important; border-color: #2f3a66 !important; }
+.step b { color: #f8fafc !important; } .step span, .pop-label, .crumb-here { color: #94a3b8 !important; }
+.step .num { background: rgba(99,102,241,.25) !important; color: #c7d2fe !important; }
+.st-key-crumb button p { color: #a5b4fc !important; }
 .qcard .qmean { color: #cbd5e1 !important; } .qcard .qrule { color: #94a3b8 !important; } .qcard .qname, .qcard .qval { color: #f8fafc !important; }
 </style>
 """
@@ -300,7 +330,24 @@ def chips_html(chips) -> str:
     return "".join(f'<span class="chip {c}">{html.escape(t)}</span>' for t, c in chips if t)
 
 
+NAV = [  # (mode code, menu label)
+    ("home", "🏠  Home"),
+    ("single", "🔎  Value a stock or fund"),
+    ("compare", "⚖️  Compare"),
+    ("portfolio", "🧺  My portfolio"),
+    ("backtest", "🧪  Does the model work?"),
+]
+
+
 def page_head(title: str, chips=()) -> None:
+    """Page title with a 'Home ›' link above it, so getting back is one click from anywhere."""
+    code = {v: k for k, v in MODES.items()}.get(st.session_state.get("mode"), "home")
+    section = dict(NAV).get(code, "").split("  ", 1)[-1]
+    crumb = st.container(horizontal=True, gap="small", vertical_alignment="center", key="crumb")
+    crumb.button("🏠 Home", key="crumb_home", type="tertiary", on_click=open_mode, args=("home",),
+                 help="Back to the start page")
+    crumb.markdown(f'<span class="crumb-sep">›</span> <span class="crumb-here">{html.escape(section)}</span>',
+                   unsafe_allow_html=True)
     st.markdown(f'<div class="page-head"><h2>{html.escape(title)}</h2>{chips_html(chips)}</div>',
                 unsafe_allow_html=True)
 
@@ -1083,7 +1130,7 @@ SCEN_VIEWS = ["Three scenarios", "Probability view", "What-if grid"]
 
 def view_switch(options: list, key: str) -> str:
     """A compact row of buttons to switch between parts of a tab (keeps tabs from getting long)."""
-    choice = st.segmented_control("Show", options, default=options[0], key=key, label_visibility="collapsed")
+    choice = st.segmented_control("Choose what to see", options, default=options[0], key=key)
     return choice or options[0]
 
 
@@ -1268,24 +1315,41 @@ MARKET_AVERAGE = 0.10   # long-run average yearly return of US stocks, dividends
 DEFAULT_VOLATILITY = 0.15
 
 
+RETURN_CHOICES = {   # key: (label, caption)
+    "model": ("The model's estimate", "Based on today's prices of your holdings"),
+    "market": (f"Stock market average ({MARKET_AVERAGE:.0%})", "US stocks' long-run average, dividends included"),
+    "cautious": ("Cautious (5%)", "In case returns disappoint"),
+    "own": ("Choose my own", "Set any rate with the slider below"),
+}
+INFLATION = 0.025
+
+
 def future_value_view(rows: list, total: float, model_return) -> None:
     st.markdown("#### What could your portfolio be worth?")
-    c1, c2, c3 = st.columns(3)
-    years = c1.slider("Years from now", 1, 40, 10, key="fv_years")
-    monthly = c2.number_input("Add each month ($)", min_value=0, max_value=1_000_000, value=0, step=50,
-                              key="fv_monthly", help="Money you plan to add every month. 0 if none.")
-    options = {}
-    if model_return is not None and pd.notna(model_return):
-        options[f"The model's estimate ({model_return:.1%})"] = model_return
-    options[f"Stock market's long-run average ({MARKET_AVERAGE:.0%})"] = MARKET_AVERAGE
-    options["Cautious (5%)"] = 0.05
-    options["Choose my own"] = None
-    pick = c3.selectbox("Yearly return to assume", list(options), key="fv_return",
-                        help="The average yearly return, including dividends. The model's estimate is the "
-                             "portfolio's expected return from the At a glance box.")
-    rate = options[pick]
-    if rate is None:
-        rate = st.slider("My yearly return", 0.0, 15.0, 7.0, 0.5, format="%.1f%%", key="fv_custom") / 100
+    st.markdown(f"Starting from what your holdings are worth today, **${total:,.0f}**. Answer three questions:")
+    has_model = model_return is not None and pd.notna(model_return)
+    keys = [k for k in RETURN_CHOICES if has_model or k != "model"]
+
+    def label(k: str) -> str:
+        name = RETURN_CHOICES[k][0]
+        return f"{name} ({model_return:.1%})" if k == "model" else name
+
+    with st.container(border=True, key="card_fv_inputs"):
+        c1, c2, c3 = st.columns([1, 1, 1.3], gap="large")
+        with c1:
+            years = st.slider("① How many years will you invest?", 1, 40, 10, key="fv_years", format="%d years")
+        with c2:
+            monthly = st.number_input("② How much will you add each month? ($)", min_value=0, max_value=1_000_000,
+                                      value=0, step=50, key="fv_monthly")
+            st.caption("Enter 0 if you won't add any money.")
+        with c3:
+            pick = st.radio("③ What yearly return should we assume?", keys, format_func=label, key="fv_choice",
+                            captions=[RETURN_CHOICES[k][1] for k in keys])
+        rate = {"model": model_return, "market": MARKET_AVERAGE, "cautious": 0.05}.get(pick)
+        if rate is None:
+            rate = st.slider("My yearly return", 0.0, 15.0, 7.0, 0.5, format="%.1f%%", key="fv_custom") / 100
+    real = st.toggle(f"Show in today's dollars (takes out {INFLATION:.1%} yearly inflation)", key="fv_real",
+                     help="Future dollars buy less than today's. Turn this on to see what the amounts would buy now.")
 
     prices = {r["Ticker"]: fetch_history(r["Ticker"]) for r in rows}
     vol = portfolio_volatility(prices, {r["Ticker"]: r["Amount"] for r in rows})
@@ -1294,9 +1358,22 @@ def future_value_view(rows: list, total: float, model_return) -> None:
         vol, vol_note = DEFAULT_VOLATILITY, "a typical figure for a stock portfolio (not enough price history)"
 
     proj = project_value(total, monthly, years, rate, vol)
+    if real:
+        proj = proj.div((1 + INFLATION) ** proj.index.to_series(), axis=0)
     end = proj.loc[years]
+    dollars = " in today's dollars" if real else ""
+    with st.container(border=True, key="verdict_green_fv"):
+        st.markdown(esc(
+            f"#### :green[Most likely around ${end['p50']:,.0f}{dollars}]\n"
+            f"If you start with **${total:,.0f}**"
+            + (f", add **${monthly:,.0f} a month**" if monthly else "")
+            + f" and earn about **{rate:.1%} a year**, after **{years} years** you'd most likely have around "
+            f"**${end['p50']:,.0f}**. In 8 out of 10 cases it would be between **${end['p10']:,.0f}** and "
+            f"**${end['p90']:,.0f}**. You'd have put in **${end['put_in']:,.0f}** yourself"
+            + (", in today's dollars" if real else "") + "."
+        ))
     m1, m2, m3, m4 = st.container(key="compact_fv").columns(4)
-    m1.metric(f"Middle outcome in {years} yr", short_money(end["p50"]),
+    m1.metric(f"Most likely in {years} yr", short_money(end["p50"]),
               help=f"Half of the simulated outcomes end above this, half below. Exactly: ${end['p50']:,.0f}.")
     m2.metric("Likely range (8 in 10)", f"{short_money(end['p10'])} – {short_money(end['p90'])}",
               help=f"8 in 10 outcomes land between ${end['p10']:,.0f} and ${end['p90']:,.0f}.")
@@ -1336,27 +1413,32 @@ def future_value_view(rows: list, total: float, model_return) -> None:
 
 def render_portfolio() -> None:
     page_head("My portfolio")
-    st.caption("Enter what you own and how much it's worth. Each holding is valued with its default assumptions; "
-               "open one in single view to adjust them. Nothing you type is saved anywhere except the page link.")
+    st.caption("Enter what you own and what each holding is worth today. Each one is valued with its default "
+               "assumptions. Nothing you type is saved anywhere except the page link.")
     if "portfolio" not in st.session_state:
         st.session_state["portfolio"] = EXAMPLE_PORTFOLIO
-    if "pf_start" not in st.session_state:   # the editor's starting table must stay the same between reruns
-        st.session_state["pf_start"] = pd.DataFrame(
-            parse_holdings(st.session_state["portfolio"]) or [("VOO", 1000.0)], columns=["Ticker", "Amount ($)"])
+    if "pf_table" not in st.session_state:   # the editor's starting table must stay the same between reruns
+        st.session_state["pf_table"] = pd.DataFrame(
+            parse_holdings(st.session_state["portfolio"]) or [("VOO", 1000.0)], columns=["Ticker", "Value today ($)"])
 
     left, right = st.columns([1, 2], gap="large")
     with left:
         st.markdown("#### Your holdings")
         edited = st.data_editor(
-            st.session_state["pf_start"], num_rows="dynamic", hide_index=True, key="pf_editor", width="stretch",
+            st.session_state["pf_table"], num_rows="dynamic", hide_index=True, key="pf_holdings", width="stretch",
             column_config={
-                "Ticker": st.column_config.TextColumn(help="e.g. VOO, AAPL", required=True),
-                "Amount ($)": st.column_config.NumberColumn(min_value=0.0, step=100.0, format="dollar", required=True),
+                "Ticker": st.column_config.TextColumn(help="The stock or fund's ticker, e.g. VOO or AAPL.",
+                                                      required=True),
+                "Value today ($)": st.column_config.NumberColumn(
+                    help="What this holding is worth now (its market value in your brokerage app), "
+                         "not what you paid for it.",
+                    min_value=0.0, step=100.0, format="dollar", required=True),
             },
         )
-        if st.session_state["portfolio"] == EXAMPLE_PORTFOLIO:
-            st.caption("This is an example. Click a cell to change it, or use the + row to add holdings.")
-    holdings = [(str(t).strip().upper(), float(a)) for t, a in zip(edited["Ticker"], edited["Amount ($)"])
+        st.caption("Use each holding's **value today** (shares × today's price), not what you paid. "
+                   + ("This is an example: click a cell to change it, or the + row to add one."
+                      if st.session_state["portfolio"] == EXAMPLE_PORTFOLIO else ""))
+    holdings = [(str(t).strip().upper(), float(a)) for t, a in zip(edited["Ticker"], edited["Value today ($)"])
                 if isinstance(t, str) and t.strip() and pd.notna(a) and a > 0]
     merged: dict = {}
     for t, a in holdings:
@@ -1403,79 +1485,76 @@ def render_portfolio() -> None:
                   help="Share of your money in holdings whose price assumes more growth than their track record "
                        "(red in the table below).")
 
-    view = view_switch(["Breakdown", "Future value"], "pf_view")
-    if view == "Future value":
+    t_break, t_future = st.tabs(["📊 Breakdown", "🔮 Future value"])
+    with t_future:
         future_value_view(rows, total, exp)
-        share_button()
-        return
+    with t_break:
+        c1, c2 = st.columns(2, gap="large")
+        with c1:
+            st.markdown("#### Where your money is")
+            mix = sector_mix(rows).rename(index={"Communication services": "Communication",
+                                                  "Financial services": "Financials"})
+            mix = mix.groupby(level=0).sum().sort_values(ascending=False)
+            top = mix.head(7)
+            if len(mix) > 7:
+                top["Other"] = mix.iloc[7:].sum()
+            fig = go.Figure(go.Pie(labels=list(top.index), values=list(top.values), hole=0.55, sort=False,
+                                   marker=dict(colors=["#4f46e5", "#0d9488", "#f59e0b", "#e11d48", "#7c3aed",
+                                                       "#0ea5e9", "#64748b", "#94a3b8"]),
+                                   textinfo="percent", hovertemplate="%{label}: $%{value:,.0f}<extra></extra>"))
+            chart_layout(fig, height=340, hovermode="closest", legend=dict(orientation="v", x=1.02, y=0.5))
+            show(fig)
+        with c2:
+            st.markdown("#### Expected return by holding")
+            ok = [r for r in rows if pd.notna(r["Expected return"])]
+            fig = go.Figure(go.Bar(
+                x=[r["Expected return"] * 100 for r in ok], y=[r["Ticker"] for r in ok], orientation="h",
+                marker_color=[COLOUR_HEX.get(r["Colour"], GREY) for r in ok],
+                text=[f"{r['Expected return']:.1%}" for r in ok], textposition="outside", cliponaxis=False,
+                hovertemplate="%{y}: %{x:.1f}% a year<extra></extra>"))
+            if exp is not None:
+                fig.add_vline(x=exp * 100, line_dash="dash", line_color=BLUE,
+                              annotation_text=f"Portfolio {exp:.1%}", annotation_position="top")
+            chart_layout(fig, height=340, showlegend=False, hovermode="closest",
+                         xaxis=dict(ticksuffix="%", rangemode="tozero"), yaxis=dict(autorange="reversed"))
+            show(fig)
 
-    c1, c2 = st.columns(2, gap="large")
-    with c1:
-        st.markdown("#### Where your money is")
-        mix = sector_mix(rows).rename(index={"Communication services": "Communication",
-                                              "Financial services": "Financials"})
-        mix = mix.groupby(level=0).sum().sort_values(ascending=False)
-        top = mix.head(7)
-        if len(mix) > 7:
-            top["Other"] = mix.iloc[7:].sum()
-        fig = go.Figure(go.Pie(labels=list(top.index), values=list(top.values), hole=0.55, sort=False,
-                               marker=dict(colors=["#4f46e5", "#0d9488", "#f59e0b", "#e11d48", "#7c3aed",
-                                                   "#0ea5e9", "#64748b", "#94a3b8"]),
-                               textinfo="percent", hovertemplate="%{label}: $%{value:,.0f}<extra></extra>"))
-        chart_layout(fig, height=340, hovermode="closest", legend=dict(orientation="v", x=1.02, y=0.5))
-        show(fig)
-    with c2:
-        st.markdown("#### Expected return by holding")
-        ok = [r for r in rows if pd.notna(r["Expected return"])]
-        fig = go.Figure(go.Bar(
-            x=[r["Expected return"] * 100 for r in ok], y=[r["Ticker"] for r in ok], orientation="h",
-            marker_color=[COLOUR_HEX.get(r["Colour"], GREY) for r in ok],
-            text=[f"{r['Expected return']:.1%}" for r in ok], textposition="outside", cliponaxis=False,
-            hovertemplate="%{y}: %{x:.1f}% a year<extra></extra>"))
-        if exp is not None:
-            fig.add_vline(x=exp * 100, line_dash="dash", line_color=BLUE,
-                          annotation_text=f"Portfolio {exp:.1%}", annotation_position="top")
-        chart_layout(fig, height=340, showlegend=False, hovermode="closest",
-                     xaxis=dict(ticksuffix="%", rangemode="tozero"), yaxis=dict(autorange="reversed"))
-        show(fig)
+        table = pd.DataFrame([{k: r[k] for k in ("Ticker", "Name", "Type", "Amount", "Price", "Value / share",
+                                                   "Gap vs. price", "Expected return", "Growth priced in",
+                                                   "Expectations")} for r in rows])
+        table["Weight"] = table["Amount"] / total
+        table = table[["Ticker", "Name", "Amount", "Weight", "Gap vs. price", "Expected return", "Growth priced in",
+                       "Expectations"]]
+        tone = {r["Ticker"]: r["Colour"] for r in rows}
 
-    table = pd.DataFrame([{k: r[k] for k in ("Ticker", "Name", "Type", "Amount", "Price", "Value / share",
-                                               "Gap vs. price", "Expected return", "Growth priced in",
-                                               "Expectations")} for r in rows])
-    table["Weight"] = table["Amount"] / total
-    table = table[["Ticker", "Name", "Amount", "Weight", "Gap vs. price", "Expected return", "Growth priced in",
-                   "Expectations"]]
-    tone = {r["Ticker"]: r["Colour"] for r in rows}
+        def tint(row):
+            bg = {"green": GREEN_BG, "red": RED_BG, "orange": "background-color: rgba(245,158,11,0.22)"}.get(tone[row["Ticker"]], "")
+            return ["" if col != "Expectations" else bg for col in row.index]
 
-    def tint(row):
-        bg = {"green": GREEN_BG, "red": RED_BG, "orange": "background-color: rgba(245,158,11,0.22)"}.get(tone[row["Ticker"]], "")
-        return ["" if col != "Expectations" else bg for col in row.index]
-
-    st.markdown("#### Holdings")
-    st.dataframe(
-        table.style.apply(tint, axis=1), hide_index=True, width="stretch",
-        column_config={
-            "Amount": st.column_config.NumberColumn(format="dollar"),
-            "Weight": st.column_config.NumberColumn(format="percent"),
-            "Gap vs. price": st.column_config.NumberColumn(
-                "Gap vs. model", format="percent", help="Model value ÷ price − 1. Negative = priced above the model."),
-            "Expected return": st.column_config.NumberColumn(format="percent"),
-            "Growth priced in": st.column_config.NumberColumn(format="percent"),
-        },
-    )
-    explain(
-        "**How to read this page:**\n"
-        "- **Where your money is** adds up your holdings by sector, *looking inside funds*: $1,000 in an S&P 500 "
-        "fund counts as about $300 in technology, $130 in financials and so on. It shows whether you're more "
-        "concentrated than you think.\n"
-        "- **Expected return** is each holding's *return priced in*: the yearly return you'd earn buying at "
-        "today's price if the default growth assumptions come true. Colours show how demanding the price is "
-        "(green modest, amber in line with the record, red demanding).\n"
-        "- These use default assumptions and simple models, so treat them as a starting point for questions, "
-        "not as forecasts. Not investment advice."
-    )
+        st.markdown("#### Holdings")
+        st.dataframe(
+            table.style.apply(tint, axis=1), hide_index=True, width="stretch",
+            column_config={
+                "Amount": st.column_config.NumberColumn(format="dollar"),
+                "Weight": st.column_config.NumberColumn(format="percent"),
+                "Gap vs. price": st.column_config.NumberColumn(
+                    "Gap vs. model", format="percent", help="Model value ÷ price − 1. Negative = priced above the model."),
+                "Expected return": st.column_config.NumberColumn(format="percent"),
+                "Growth priced in": st.column_config.NumberColumn(format="percent"),
+            },
+        )
+        explain(
+            "**How to read this page:**\n"
+            "- **Where your money is** adds up your holdings by sector, *looking inside funds*: $1,000 in an S&P 500 "
+            "fund counts as about $300 in technology, $130 in financials and so on. It shows whether you're more "
+            "concentrated than you think.\n"
+            "- **Expected return** is each holding's *return priced in*: the yearly return you'd earn buying at "
+            "today's price if the default growth assumptions come true. Colours show how demanding the price is "
+            "(green modest, amber in line with the record, red demanding).\n"
+            "- These use default assumptions and simple models, so treat them as a starting point for questions, "
+            "not as forecasts. Not investment advice."
+        )
     share_button()
-
 
 def render_company(c, ticker: str) -> None:
     k = lambda name: f"{name}__{ticker}"  # widget keys, per ticker so defaults reset on change
@@ -2387,7 +2466,9 @@ An index fund has no business of its own, so the model treats **all the companie
 # Home
 # --------------------------------------------------------------------------- #
 
-POPULAR = ["AAPL", "MSFT", "NVDA", "AMZN", "KO", "COST", "JPM", "VOO", "QQQ"]
+POPULAR_STOCKS = [("AAPL", "Apple"), ("MSFT", "Microsoft"), ("NVDA", "NVIDIA"), ("AMZN", "Amazon"),
+                  ("KO", "Coca-Cola"), ("COST", "Costco"), ("JPM", "JPMorgan")]
+POPULAR_FUNDS = [("VOO", "S&P 500"), ("QQQ", "Nasdaq-100"), ("VTI", "Total US market"), ("SCHD", "Dividend stocks")]
 
 
 def open_ticker(t: str) -> None:
@@ -2414,37 +2495,57 @@ def _search_submitted() -> None:
 
 
 def popular_row(key: str) -> None:
-    row = st.container(horizontal=True, gap="small")
-    for t in POPULAR:
-        row.button(t, key=f"{key}_{t}", on_click=open_ticker, args=(t,), help=TICKERS.get(t, ""))
+    """Popular stocks and funds as one-click buttons, labelled with their names."""
+    for label, items in (("Popular stocks", POPULAR_STOCKS), ("Popular index funds", POPULAR_FUNDS)):
+        st.markdown(f'<div class="pop-label">{label}</div>', unsafe_allow_html=True)
+        row = st.container(horizontal=True, gap="small")
+        for t, name in items:
+            row.button(f"{name} · {t}", key=f"{key}_{t}", on_click=open_ticker, args=(t,))
 
 
 def render_home() -> None:
     st.markdown(
         '<div class="hero"><h1>📈 Stock &amp; Fund Valuation</h1>'
-        "<p>Estimate what a stock or index fund is worth from the cash it's expected to produce, "
-        "and see what today's price is betting on. Built for beginners: every chart explains itself.</p></div>",
+        "<p>Find out what a stock or index fund is worth, what its price is betting on, and how your own "
+        "portfolio could grow. Made for beginners: every chart explains itself.</p></div>",
         unsafe_allow_html=True,
     )
-    st.markdown("#### Look up a stock or fund")
-    st.text_input("Ticker", key="home_search", placeholder="Type a ticker and press Enter, e.g. AAPL, HD, VOO",
-                  on_change=_search_submitted, label_visibility="collapsed")
-    st.caption("Or pick a popular one:")
-    popular_row("home_pop")
 
-    st.markdown("#### What you can do")
+    with st.container(border=True, key="card_search"):
+        st.markdown("#### 🔎 Look up a stock or fund")
+        row = st.container(horizontal=True, gap="small", vertical_alignment="bottom")
+        row.text_input("Ticker", key="home_search", placeholder="Type a ticker, e.g. AAPL, HD or VOO, and press Enter",
+                       on_change=_search_submitted, label_visibility="collapsed", width="stretch")
+        row.button("Go", key="home_go", type="primary", on_click=_search_submitted)
+        popular_row("home_pop")
+
+    st.markdown("#### What would you like to do?")
     cards = [
-        ("single", "🔎 Value one stock or fund", "See what it's worth, what its price assumes, and how it could move."),
-        ("compare", "⚖️ Compare several", "Put up to six stocks and funds side by side."),
-        ("portfolio", "🧺 My portfolio", "Enter what you own to see your mix, expected return and future value."),
-        ("backtest", "🧪 Does the model work?", "How the model's calls on ~70 companies turned out since 2012."),
+        ("single", "🔎 Value a stock or fund", "See what it's worth, what the price assumes and how it could move.",
+         "Value a stock"),
+        ("compare", "⚖️ Compare", "Put up to six stocks and funds side by side with the same yardstick.",
+         "Compare"),
+        ("portfolio", "🧺 My portfolio", "Enter what you own: see your mix, expected return and future value.",
+         "Open my portfolio"),
+        ("backtest", "🧪 Does the model work?", "How the model's calls on ~70 companies turned out since 2012.",
+         "See the results"),
     ]
     cols = st.columns(4)
-    for col, (code, title, text) in zip(cols, cards):
+    for col, (code, title, text, cta) in zip(cols, cards):
         with col, st.container(border=True, key=f"card_home_{code}", height="stretch",
                                vertical_alignment="distribute"):
             st.html(f'<div class="home-card"><h4>{html.escape(title)}</h4><p>{html.escape(text)}</p></div>')
-            st.button("Open", key=f"home_open_{code}", on_click=open_mode, args=(code,), width="stretch")
+            st.button(f"{cta} →", key=f"home_open_{code}", on_click=open_mode, args=(code,), width="stretch")
+
+    st.markdown("#### New here? Three steps")
+    steps = [
+        ("Pick a stock or fund", "Search above, or click one of the popular names."),
+        ("Read the verdict", "A coloured box says whether it looks cheap, fair or expensive, and why."),
+        ("Try your own view", "Move the sliders in the sidebar. The whole page updates as you go."),
+    ]
+    for col, (i, (head, text)) in zip(st.columns(3), enumerate(steps, 1)):
+        col.html(f'<div class="step"><div class="num">{i}</div><div><b>{html.escape(head)}</b>'
+                 f'<span>{html.escape(text)}</span></div></div>')
 
     st.markdown("#### Learn the basics")
     with st.expander("How a stock is valued (DCF)"):
@@ -2453,19 +2554,22 @@ def render_home() -> None:
         how_it_works_fund(glossary=False)
     with st.expander("Glossary of terms"):
         st.markdown(GLOSSARY)
-    st.caption("For learning purposes only, not investment advice.")
+
 
 def _picked_from_list():
     st.session_state["custom_ticker"] = ""  # a list choice replaces any typed ticker
 
 
+st.session_state.setdefault("mode", MODES["home"])
+mode_code = {v: k for k, v in MODES.items()}.get(st.session_state["mode"], "home")
 with st.sidebar:
     st.markdown('<div class="side-brand"><div class="logo">📈</div><div><b>Valuation Lab</b>'
                 '<span>Stocks &amp; index funds, explained</span></div></div>', unsafe_allow_html=True)
-    mode = st.radio("What do you want to do?", list(MODES.values()), key="mode",
-                    help="My portfolio: value everything you own at once. Backtest results: how the model's past "
-                         "calls actually turned out.")
-mode_code = {v: k for k, v in MODES.items()}[mode]
+    st.markdown('<div class="side-label">Menu</div>', unsafe_allow_html=True)
+    for code, label in NAV:
+        st.button(label, key=f"nav_{code}", on_click=open_mode, args=(code,), width="stretch",
+                  type="primary" if code == mode_code else "secondary")
+    st.divider()
 if mode_code not in ("home", "single"):
     SHARE["m"] = mode_code
 if is_dark():
@@ -2522,7 +2626,8 @@ else:
         data_freshness(ticker)
 
 with st.sidebar:
-    st.divider()
+    if mode_code in ("single", "compare"):   # these pages add their own controls above
+        st.divider()
     st.toggle("🌙 Dark mode", key="dark", help="Switch the page to dark colours.")
 
 st.divider()
