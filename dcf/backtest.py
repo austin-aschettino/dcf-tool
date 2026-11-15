@@ -32,7 +32,8 @@ import yfinance as yf
 
 from . import cache, sec
 from .data import CompanyData
-from .model import DCFAssumptions, check_company, compute_wacc, cost_of_equity, historical_growth, run_dcf
+from .model import (FORECAST_YEARS, DCFAssumptions, check_company, compute_wacc, cost_of_equity, default_base,
+                    historical_growth, run_dcf)
 
 # Large US companies with filings back to at least ~2012, across sectors.
 UNIVERSE = [
@@ -132,7 +133,8 @@ def point_in_time_assumptions(c: CompanyData, rf: float) -> DCFAssumptions:
     """The app's default assumptions, using only information available at the time."""
     g = min(max(historical_growth(c), -0.05), 0.20)
     rate = cost_of_equity(c, rf=rf) if c.is_financial else compute_wacc(c, rf=rf)
-    return DCFAssumptions(growth_rate=g, terminal_growth=0.025, wacc=min(max(rate, 0.06), 0.15), years=5, base="avg3")
+    return DCFAssumptions(growth_rate=g, terminal_growth=0.025, wacc=min(max(rate, 0.06), 0.15),
+                          years=FORECAST_YEARS, base=default_base(c))
 
 
 def value_stock(ticker: str, facts: dict, sic: int, when: pd.Timestamp, prices: pd.DataFrame,

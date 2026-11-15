@@ -159,3 +159,36 @@ def test_steady_company_has_no_warnings():
 def test_implied_growth_nan_for_cash_burning_company():
     c = make_company(fcf=(-100, -50, -20), price=10)
     assert math.isnan(implied_growth(c, flat()))
+
+
+# ---- Default method (10 years, 4.5% risk premium, latest year when growing) and its caveats ----
+
+from dcf.model import default_assumptions  # noqa: E402
+
+def test_defaults_use_ten_years_and_the_lower_risk_premium():
+    from dcf.model import EQUITY_RISK_PREMIUM, FORECAST_YEARS, default_assumptions
+    c = make_company()
+    a = default_assumptions(c)
+    assert FORECAST_YEARS == 10 and a.years == 10
+    assert EQUITY_RISK_PREMIUM == 0.045
+    assert a.wacc == pytest.approx(min(max(0.043 + 1.0 * 0.045, 0.06), 0.15))   # beta 1, no debt
+
+
+def test_starting_point_follows_the_cash_flow_trend():
+    from dcf.model import default_base
+    assert default_base(make_company(fcf=(80.0, 90.0, 120.0))) == "latest"    # growing: average would lag
+    assert default_base(make_company(fcf=(120.0, 110.0, 90.0))) == "avg3"     # shrinking: smooth it out
+    assert default_assumptions(make_company(fcf=(80.0, 90.0, 120.0))).base == "latest"
+
+
+def test_caveats_flag_known_blind_spots():
+    from dcf.model import model_caveats
+    heavy = make_company()
+    heavy.operating_cash_flow, heavy.capex = [100.0, 100.0, 100.0], [-60.0, -60.0, -70.0]
+    assert [x[0] for x in model_caveats(heavy, default_assumptions(heavy))] == ["heavy investment"]
+    dip = make_company(fcf=(100.0, 100.0, 40.0))
+    assert "recent dip in cash flow" in [x[0] for x in model_caveats(dip, default_assumptions(dip))]
+    jumpy = make_company()
+    jumpy.beta = 2.3
+    assert "very volatile stock" in [x[0] for x in model_caveats(jumpy, default_assumptions(jumpy))]
+    assert model_caveats(make_company(), default_assumptions(make_company())) == []

@@ -24,6 +24,8 @@ from .model import (
     cost_of_equity,
     default_assumptions,
     default_growth,
+    default_base,
+    model_caveats,
     implied_growth,
     make_scenarios,
     run_dcf,
@@ -53,7 +55,7 @@ from .reverse import (
 __all__ = [
     "load", "price_history", "data_age_hours",
     "CompanyData", "fetch_company", "is_financial_industry",
-    "DCFAssumptions", "DCFResult", "default_assumptions", "default_growth", "base_cash",
+    "DCFAssumptions", "DCFResult", "default_assumptions", "default_growth", "default_base", "model_caveats", "base_cash",
     "check_company", "cost_of_equity", "run_dcf", "implied_growth", "make_scenarios", "sensitivity_table",
     "FundData", "fetch_fund", "is_fund", "IndexAssumptions", "IndexResult", "default_index_assumptions",
     "run_index_valuation", "implied_index_growth", "index_scenarios", "index_sensitivity",

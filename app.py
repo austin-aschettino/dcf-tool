@@ -24,6 +24,8 @@ from dcf import (
     data_age_hours,
     default_assumptions,
     default_growth,
+    default_base,
+    model_caveats,
     default_index_assumptions,
     fund_scenarios,
     fund_tables,
@@ -568,11 +570,13 @@ def slider_value(frac: float, lo: float, hi: float, step: float) -> float:
 # Shared page pieces
 # --------------------------------------------------------------------------- #
 
-def verdict_box(name: str, value: float, price: float, upside: float, noun: str, extra: str = "") -> None:
+def verdict_box(name: str, value: float, price: float, upside: float, noun: str, extra: str = "",
+                caveats=()) -> None:
     if upside > 0.15:
         tone, color = "looks **undervalued**", "green"
     elif upside < -0.15:
-        tone, color = "looks **overvalued**", "red"
+        # With a known blind spot the honest claim is about the model, not the stock.
+        tone, color = ("is priced **well above** this model's estimate" if caveats else "looks **overvalued**"), "red"
     else:
         tone, color = "looks **roughly fairly priced**", "orange"
     # Phrase it the same way as the "Gap vs. price" metric (value / price - 1) so the numbers match.
@@ -590,6 +594,11 @@ def verdict_box(name: str, value: float, price: float, upside: float, noun: str,
             help="This is what the math says given the assumptions in the sidebar, not a prediction of where the "
                  "price will go. Change the assumptions and the answer changes.",
         )
+        if caveats:
+            # Known blind spots of a simple cash-flow model: say so instead of letting a low number speak alone.
+            labels = " · ".join(label for label, _ in caveats)
+            with st.expander(f"⚠️ This estimate is probably too low here ({labels}). Why?"):
+                st.markdown(esc("\n\n".join(f"**{label.capitalize()}.** {text}" for label, text in caveats)))
         st.markdown('<p class="mobile-only">Tap » at the top left to change the assumptions.</p>',
                     unsafe_allow_html=True)
 
@@ -1623,13 +1632,15 @@ def render_company(c, ticker: str) -> None:
             help="Analysts' forecast = Wall Street's consensus for next year's earnings growth. "
                  "Past sales growth = how fast revenue grew over the last few years.",
         )
+        st.session_state.setdefault(k("base"), default_base(c))   # latest year if cash flow has been growing
         base = st.radio(
             "Start cash flow from",
             ["avg3", "latest"],
             format_func=lambda b: "3-year average" if b == "avg3" else "Latest year",
             key=k("base"), horizontal=True,
             help="The average smooths out one unusually good or bad year; the latest year reflects the "
-                 "company's most recent performance.",
+                 "company's most recent performance. The default is the latest year when cash flow has been "
+                 "growing (the average would lag behind), and the average otherwise.",
         )
 
     SHARE.update(t=ticker, src=src, base=base)
@@ -1693,7 +1704,7 @@ def render_company(c, ticker: str) -> None:
 
     warnings_box(warnings)
     tail = priced_in_sentence(g_implied, growth, years, terminal, cash_name)
-    verdict_box(c.name, r.value_per_share, c.price, r.upside, "share", tail)
+    verdict_box(c.name, r.value_per_share, c.price, r.upside, "share", tail, caveats=model_caveats(c, a))
     download_button(company_tables(c, a, r, fetch_history(ticker)), ticker, actions)
 
     t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_data = st.tabs(
@@ -2109,6 +2120,8 @@ def compare_row(t: str, data) -> dict:
         notes.append("bank method")
     if any("negative" in w or "swung" in w for w in warnings):
         notes.append("uneven cash flow")
+    if model_caveats(data, a):
+        notes.append("likely too low")
     return {**row, "Estimated value": r.value_per_share, "Gap vs. price": r.upside * 100,
             "Growth assumed": a.growth_rate * 100, "Growth priced in": implied_growth(data, a) * 100,
             "Notes": ", ".join(notes)}
@@ -2180,7 +2193,9 @@ def render_compare() -> None:
                 "Return", width=72, help="Funds only: expected yearly return at today's price, after fees."),
             "P/E": st.column_config.NumberColumn(format="%.1f", width=72),
             "Yearly fee": st.column_config.TextColumn("Fee", width=72, help="Funds only: yearly expense ratio."),
-            "Notes": st.column_config.TextColumn(width=110),
+            "Notes": st.column_config.TextColumn(
+                width=110, help="'likely too low': heavy investment, a recent dip in cash flow or a very volatile "
+                                "stock, which this simple model tends to undervalue. Open it in single view for details."),
         },
     )
 
@@ -2422,7 +2437,7 @@ def render_backtest() -> None:
 **Method**
 - **Dates:** every 1 April from the first year shown, after most companies have filed their annual reports.
 - **No peeking:** each valuation uses only annual reports already filed with the SEC by that date, the actual share price that day, the 10-year Treasury yield that day, and beta from the previous two years.
-- **Same model as the app:** a 5-year DCF with growth fading to 2.5%, discounted at the WACC (banks: dividends + buybacks at the cost of equity). Growth comes from past sales growth, because analysts' forecasts from back then aren't freely available.
+- **Same model as the app:** a 10-year DCF with growth fading to 2.5%, starting from the latest year's cash flow when it had been growing (otherwise the 3-year average), discounted at the WACC with a 4.5% market risk premium (banks: dividends + buybacks at the cost of equity). Growth comes from past sales growth, because analysts' forecasts from back then aren't freely available.
 - **Groups:** stocks are ranked by the model's gap vs. price and split into equal thirds. Each group's result is the simple average return (price change plus dividends) over the following 12 months.
 
 **Limits to keep in mind**
@@ -2469,7 +2484,7 @@ def how_it_works_stock(glossary: bool = True) -> None:
         """
 The idea behind it: **a company is worth the cash it will produce in the future, converted into today's money.**
 
-1. **Start with recent cash.** Take the company's free cash flow: the 3-year average, or the latest year if you choose.
+1. **Start with recent cash.** Take the company's free cash flow: the latest year if it has been growing, otherwise the 3-year average (you can switch).
 2. **Forecast it.** Grow it each year at the *growth next year* rate (by default, analysts' forecast), slowing down toward the *long-term growth* rate.
 3. **Add the far future.** After the forecast years, assume steady long-term growth forever, and value all of it in one step (the "terminal value").
 4. **Convert to today's money.** Shrink every future amount using the *required return*. Money further away shrinks more.

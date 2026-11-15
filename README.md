@@ -18,7 +18,7 @@ Everything is explained in plain English inside the app: every chart and table h
 | | |
 |---|---|
 | **Plain-English verdict** | "AutoZone looks roughly fairly priced: worth about $3,461, 6% above today's price." |
-| **What's priced in** | The growth rate the current price implies, e.g. *"Apple would need to grow 34% a year for 5 years."* |
+| **What's priced in** | The growth rate the current price implies, e.g. *"Apple's free cash flow would need to grow about 14% a year for 10 years."* |
 | **Reverse DCF** | Works backwards from today's price: the growth and return the market is betting on, how demanding that is compared with the company's track record, the cash flow the price needs, and a grid of growth priced in for other required returns and time frames. |
 | **Scenarios** | Pessimistic / middle / optimistic estimates, each loadable into the sliders with one click. |
 | **Probability view** | Runs the valuation 5,000 times with assumptions drawn around yours, and shows the range of values and the chance today's price is justified. |
@@ -85,30 +85,34 @@ Each year on 1 April, every stock is valued **as of that day**, with no look-ahe
 - **Price:** the price that actually traded that day (later stock splits undone).
 - **Risk-free rate:** the 10-year Treasury yield that day. **Beta:** from the previous two years of weekly returns.
 - **Growth:** past sales growth (historical analyst forecasts aren't freely available).
+- **Method:** the app's default method (10-year forecast, 4.5% market risk premium, starting from the latest year's cash flow when it had been growing).
 
 Stocks are split into thirds by the model's gap vs. price, and each third's average total return over the next 12 months is compared, along with the S&P 500. Results are saved to `results/` and shown on the dashboard's **Backtest results** page. The first run downloads about 10 years of filings and prices per company (a few minutes); later runs reuse them.
 
-**What it found (April 2012 – April 2026, ~66 stocks a year, 922 valuations):**
+**What it found (April 2012 – April 2026, ~66 stocks a year, 918 valuations):**
 
 | Group (by model's gap vs. price) | Avg return, next 12 months | Avg return a year, next 3 years |
 |---|---|---|
-| Cheapest third | 16.4% | 13.4% |
-| Middle third | 15.2% | 12.2% |
-| Most expensive third | 17.5% | 15.3% |
+| Cheapest third | 17.9% | 14.7% |
+| Middle third | 15.9% | 13.0% |
+| Most expensive third | 17.1% | 13.6% |
 | S&P 500 (SPY) | 15.1% | – |
 
-The model's "cheap" stocks did **not** beat its "expensive" ones: the cheapest third won in 5 of 14 years over 12 months and 0 of 12 periods over 3 years, and the rank correlation between the model's gap and the next year's return was about zero. That's consistent with 2012–2025 being dominated by fast-growing companies that cash-flow models tend to rate as expensive, and a reminder that a valuation estimate is a starting point for judgement, not a trading signal.
+The model's "cheap" stocks did slightly better than its "expensive" ones: the cheapest third won in 9 of 14 years over 12 months and 9 of 12 periods over 3 years. The edge is small, though: the rank correlation between the model's gap and the next year's return was +0.03, close to zero. Treat a valuation estimate as a starting point for judgement, not a trading signal.
+
+**Why the method changed (November 2026).** The first version used a 5-year forecast, a 5.5% market risk premium and always started from the 3-year average cash flow. On the same data it did worse: the cheapest third returned 16.4% a year against 17.5% for the most expensive, winning in only 5 of 14 years (0 of 12 over 3 years), and it put most large companies 20–60% below their price. The new settings were chosen in advance on standard-practice grounds and tested once, not tuned to fit these results. One side effect: more early-year estimates came out above 6× the price and were set aside as likely data errors (14 instead of 4).
 
 **Limits:** the universe is today's large companies (survivorship bias), the sample is small, and a 1-year horizon is short for a valuation signal. See the dashboard page for details.
 
 ## How it works
 
-1. **Starting cash flow:** the company's free cash flow (3-year average, or latest year).
-2. **Growth:** analysts' forecast of next year's earnings growth by default (or past sales growth), fading to a long-term rate (2.5%).
+1. **Starting cash flow:** the company's free cash flow: the latest year if it has been growing, otherwise the 3-year average.
+2. **Growth:** analysts' forecast of next year's earnings growth by default (or past sales growth), fading over 10 years to a long-term rate (2.5%).
 3. **Terminal value:** every year after the forecast, valued in one step assuming steady growth forever.
-4. **Discounting:** future cash is converted to today's money at the required return. That's the WACC for ordinary companies, or the cost of equity for banks, both estimated from the stock's beta.
+4. **Discounting:** future cash is converted to today's money at the required return. That's the WACC for ordinary companies, or the cost of equity for banks, both estimated from the stock's beta with a 4.5% market risk premium.
 5. **Per share:** subtract net debt (not for banks), divide by shares, compare with the price.
 6. **Reverse DCF:** solve for the steady growth rate that would make the estimate equal today's price.
+7. **Known blind spots, flagged in the app:** heavy investment (capital spending above half of operating cash flow), a recent dip in cash flow, and very volatile stocks. In those cases the estimate is probably too low, and the app says so.
 
 Index funds use the same idea on the fund's combined earnings (price ÷ P/E), the share paid to owners, and the fund's fee.
 

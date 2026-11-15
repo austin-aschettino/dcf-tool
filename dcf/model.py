@@ -21,7 +21,11 @@ import pandas as pd
 from .data import CompanyData
 
 RISK_FREE_RATE = 0.043       # ~10y US Treasury
-EQUITY_RISK_PREMIUM = 0.055  # long-run US equity risk premium
+# Extra yearly return investors demand for owning stocks instead of Treasuries. 4.5% is in line with
+# recent market-implied estimates; the older 5.5% made most large companies look overpriced. Tested in
+# the backtest: see README "Backtest".
+EQUITY_RISK_PREMIUM = 0.045
+FORECAST_YEARS = 10          # years forecast one by one before the long-term rate takes over
 
 GROWTH_FLOOR, GROWTH_CAP = -0.05, 0.20
 
@@ -124,15 +128,64 @@ def default_discount_rate(c: CompanyData) -> float:
     return min(max(rate, 0.06), 0.15)
 
 
-def default_assumptions(c: CompanyData, growth_source: str = "analyst", base: str = "avg3") -> DCFAssumptions:
+def default_base(c: CompanyData) -> str:
+    """Start from the latest year when cash flow has been growing (the 3-year average would lag it),
+    otherwise from the 3-year average (which smooths out a single bad or lucky year)."""
+    return "latest" if base_cash(c, "latest") > base_cash(c, "avg3") else "avg3"
+
+
+def default_assumptions(c: CompanyData, growth_source: str = "analyst", base: Optional[str] = None) -> DCFAssumptions:
     """Reasonable starting assumptions derived from the company's own data."""
     g, _ = default_growth(c, growth_source)
     return DCFAssumptions(
         growth_rate=round(g, 4),
         terminal_growth=0.025,
         wacc=round(default_discount_rate(c), 4),
-        base=base,
+        years=FORECAST_YEARS,
+        base=base or default_base(c),
     )
+
+
+def model_caveats(c: CompanyData, a: DCFAssumptions) -> List[Tuple[str, str]]:
+    """Known situations where this simple model is likely to understate the value: (short label, explanation).
+
+    They don't change the estimate; they tell the reader when to take a low estimate with a pinch of salt.
+    """
+    out: List[Tuple[str, str]] = []
+    if not c.is_financial and c.operating_cash_flow and c.capex:
+        ocf, capex = c.operating_cash_flow[-1], abs(c.capex[-1] or 0.0)
+        if ocf and ocf > 0 and not math.isnan(ocf) and capex / ocf >= 0.5:
+            out.append((
+                "heavy investment",
+                f"{c.name} spent {capex / ocf:.0%} of last year's operating cash flow on new buildings, equipment "
+                "and the like. Free cash flow counts all of it as a cost, including spending that should produce "
+                "growth later, so the estimate is probably too low while the company is in a building phase.",
+            ))
+    series = [v for v in c.valuation_cash_flow if v is not None and not math.isnan(v)]
+    if len(series) >= 2:
+        peak, latest = max(series[:-1]), series[-1]
+        if peak > 0 and latest < 0.6 * peak:
+            what = "cash returned to shareholders" if c.is_financial else "free cash flow"
+            out.append((
+                "recent dip in cash flow",
+                f"Its {what} fell from about {_money(peak)} to {_money(latest)} in the latest year. If that drop is "
+                "temporary (a one-off payment, a big project, a bad year), the estimate built on it is too low.",
+            ))
+    if a.wacc >= 0.149 or c.beta >= 1.8:
+        out.append((
+            "very volatile stock",
+            f"Its share price has swung a lot (beta {c.beta:.2f}), so the model asks for a {a.wacc:.1%} yearly "
+            "return, at or near the highest it allows. Many analysts would use a lower rate for a large, "
+            "established company, which would raise the estimate.",
+        ))
+    return out
+
+
+def _money(x: float) -> str:
+    for unit, div in (("T", 1e12), ("B", 1e9), ("M", 1e6)):
+        if abs(x) >= div:
+            return f"${x / div:,.1f}{unit}"
+    return f"${x:,.0f}"
 
 
 def base_cash(c: CompanyData, base: str = "avg3") -> float:

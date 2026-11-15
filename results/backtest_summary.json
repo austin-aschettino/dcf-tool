@@ -2,175 +2,175 @@
   "first_year": 2012,
   "last_year": 2025,
   "n_years": 14,
-  "avg_stocks_per_year": 65.85714285714286,
+  "avg_stocks_per_year": 65.57142857142857,
   "group_names": [
     "Cheapest third",
     "Middle third",
     "Most expensive third"
   ],
   "avg_return": {
-    "Cheapest third": 0.1636078926078308,
-    "Middle third": 0.15204153346163646,
-    "Most expensive third": 0.1747212656866232,
-    "All stocks (equal weight)": 0.16372462031822768,
-    "S&P 500 (SPY)": 0.15070085914861941
+    "Cheapest third": 0.179106470290561,
+    "Middle third": 0.15907841100648773,
+    "Most expensive third": 0.17105918803830983,
+    "All stocks (equal weight)": 0.1699611424018161,
+    "S&P 500 (SPY)": 0.1507008228477478
   },
   "growth_of_1": {
-    "Cheapest third": 7.567809560000719,
-    "Middle third": 6.557976501168631,
-    "Most expensive third": 8.479355663392289,
-    "All stocks (equal weight)": 7.6057215618753435,
-    "S&P 500 (SPY)": 6.197007378965444
+    "Cheapest third": 9.011962159621447,
+    "Middle third": 7.014398635929991,
+    "Most expensive third": 7.984089047145928,
+    "All stocks (equal weight)": 8.035478939994634,
+    "S&P 500 (SPY)": 6.197005613084243
   },
-  "cheap_beat_expensive": 5,
-  "avg_rank_correlation": -0.007534391579814592,
+  "cheap_beat_expensive": 9,
+  "avg_rank_correlation": 0.029187139492555466,
   "yearly": [
     {
       "year": 2012,
       "stocks": 65,
-      "Cheapest third": 0.23911245817443672,
-      "Middle third": 0.18177330659467233,
-      "Most expensive third": 0.10998427534055882,
-      "All stocks (equal weight)": 0.176882578089508,
-      "S&P 500 (SPY)": 0.13287859775384514,
-      "rank_correlation": 0.28658216783216783
+      "Cheapest third": 0.22175215613507585,
+      "Middle third": 0.158301993365057,
+      "Most expensive third": 0.1497491836715328,
+      "All stocks (equal weight)": 0.17688263594479364,
+      "S&P 500 (SPY)": 0.1328793123334584,
+      "rank_correlation": 0.14121503496503499
     },
     {
       "year": 2013,
-      "stocks": 66,
-      "Cheapest third": 0.2671396098241829,
-      "Middle third": 0.21155358452935688,
-      "Most expensive third": 0.33048039408953156,
-      "All stocks (equal weight)": 0.2697245294810238,
-      "S&P 500 (SPY)": 0.23066265931924868,
-      "rank_correlation": -0.16434610165953453
+      "stocks": 65,
+      "Cheapest third": 0.317714584350047,
+      "Middle third": 0.23157228377183686,
+      "Most expensive third": 0.25701369311810074,
+      "All stocks (equal weight)": 0.26933907790012035,
+      "S&P 500 (SPY)": 0.2306623001634458,
+      "rank_correlation": 0.03736888111888112
     },
     {
       "year": 2014,
       "stocks": 67,
-      "Cheapest third": 0.1387221647488626,
-      "Middle third": 0.18735893872159126,
-      "Most expensive third": 0.14749479302412263,
-      "All stocks (equal weight)": 0.1577039479985792,
-      "S&P 500 (SPY)": 0.1141029151291586,
-      "rank_correlation": -0.05064250937824248
+      "Cheapest third": 0.13663624868495597,
+      "Middle third": 0.19128461172403052,
+      "Most expensive third": 0.14573493266291693,
+      "All stocks (equal weight)": 0.15770391612305654,
+      "S&P 500 (SPY)": 0.11410299219618114,
+      "rank_correlation": -0.025620560300103765
     },
     {
       "year": 2015,
       "stocks": 65,
-      "Cheapest third": 0.06245379050778066,
-      "Middle third": 0.08373369032471825,
-      "Most expensive third": 0.1180424819502943,
-      "All stocks (equal weight)": 0.08814346909071896,
-      "S&P 500 (SPY)": 0.02044692812537119,
-      "rank_correlation": -0.11993006993006992
+      "Cheapest third": 0.05663396434887699,
+      "Middle third": 0.10132572620576623,
+      "Most expensive third": 0.10706981305732793,
+      "All stocks (equal weight)": 0.08814343620396307,
+      "S&P 500 (SPY)": 0.020446922627544106,
+      "rank_correlation": -0.19348776223776223
     },
     {
       "year": 2016,
-      "stocks": 66,
-      "Cheapest third": 0.1401724449214662,
-      "Middle third": 0.13449192795794843,
-      "Most expensive third": 0.17863552461083942,
-      "All stocks (equal weight)": 0.1510999658300847,
-      "S&P 500 (SPY)": 0.16281146830784787,
-      "rank_correlation": 0.004028807013881641
+      "stocks": 65,
+      "Cheapest third": 0.17515460147308784,
+      "Middle third": 0.14949766948458357,
+      "Most expensive third": 0.14724085090838876,
+      "All stocks (equal weight)": 0.1574177078702883,
+      "S&P 500 (SPY)": 0.16281143990133096,
+      "rank_correlation": 0.14082167832167833
     },
     {
       "year": 2017,
-      "stocks": 66,
-      "Cheapest third": 0.14904051163686036,
-      "Middle third": 0.07769793637402554,
-      "Most expensive third": 0.24253121650257048,
-      "All stocks (equal weight)": 0.15642322150448548,
-      "S&P 500 (SPY)": 0.13758281963913088,
-      "rank_correlation": -0.20058449013672897
+      "stocks": 65,
+      "Cheapest third": 0.17871223317756174,
+      "Middle third": 0.14954369887542587,
+      "Most expensive third": 0.14137339599439852,
+      "All stocks (equal weight)": 0.15665079258718567,
+      "S&P 500 (SPY)": 0.1375822738352923,
+      "rank_correlation": -0.0023164335664335664
     },
     {
       "year": 2018,
-      "stocks": 65,
-      "Cheapest third": 0.19161123900581592,
-      "Middle third": 0.11555136064770093,
-      "Most expensive third": 0.1616949897081461,
-      "All stocks (equal weight)": 0.15691254777398286,
-      "S&P 500 (SPY)": 0.10725862657506924,
-      "rank_correlation": 0.054152097902097907
+      "stocks": 66,
+      "Cheapest third": 0.20222462332395216,
+      "Middle third": 0.14582084472980392,
+      "Most expensive third": 0.12183051818227487,
+      "All stocks (equal weight)": 0.15662532874534363,
+      "S&P 500 (SPY)": 0.1072588597914983,
+      "rank_correlation": 0.11900636676756082
     },
     {
       "year": 2019,
       "stocks": 65,
-      "Cheapest third": -0.013281700451605427,
-      "Middle third": -0.134417498738085,
-      "Most expensive third": -0.043195527243302126,
-      "All stocks (equal weight)": -0.06254256127365772,
-      "S&P 500 (SPY)": -0.07981466059605513,
-      "rank_correlation": 0.1125
+      "Cheapest third": -0.03916240076116596,
+      "Middle third": -0.12231841638585565,
+      "Most expensive third": -0.028863835467084778,
+      "All stocks (equal weight)": -0.06254252217114592,
+      "S&P 500 (SPY)": -0.07981467010373133,
+      "rank_correlation": -0.050655594405594404
     },
     {
       "year": 2020,
       "stocks": 65,
-      "Cheapest third": 0.6103885481938828,
-      "Middle third": 0.5190551601635642,
-      "Most expensive third": 0.6138122034949213,
-      "All stocks (equal weight)": 0.5820396138552082,
-      "S&P 500 (SPY)": 0.653603421947829,
-      "rank_correlation": 0.09427447552447552
+      "Cheapest third": 0.6414885374614165,
+      "Middle third": 0.6124730080772479,
+      "Most expensive third": 0.7358553442486307,
+      "All stocks (equal weight)": 0.6640538241114345,
+      "S&P 500 (SPY)": 0.6536030857168342,
+      "rank_correlation": 0.16748251748251747
     },
     {
       "year": 2021,
-      "stocks": 64,
-      "Cheapest third": 0.10785395480290937,
-      "Middle third": 0.17245810848694595,
-      "Most expensive third": 0.12022554605459868,
-      "All stocks (equal weight)": 0.13330492722325207,
+      "stocks": 65,
+      "Cheapest third": 0.11421955419556391,
+      "Middle third": 0.15886036093893685,
+      "Most expensive third": 0.10795328823722956,
+      "All stocks (equal weight)": 0.1265210786652174,
       "S&P 500 (SPY)": 0.14545380916588901,
-      "rank_correlation": -0.03058608058608058
+      "rank_correlation": 0.02268356643356643
     },
     {
       "year": 2022,
-      "stocks": 66,
-      "Cheapest third": 0.008806264298988791,
-      "Middle third": 0.0338727285070518,
-      "Most expensive third": -0.03863961501242317,
-      "All stocks (equal weight)": 0.0013464592645391416,
-      "S&P 500 (SPY)": -0.08079556400065235,
-      "rank_correlation": 0.11741989353929655
+      "stocks": 65,
+      "Cheapest third": 0.02299144889357913,
+      "Middle third": -0.01711470181404451,
+      "Most expensive third": 0.005651447072566409,
+      "All stocks (equal weight)": 0.00416515343323488,
+      "S&P 500 (SPY)": -0.08079549243473061,
+      "rank_correlation": 0.07215909090909091
     },
     {
       "year": 2023,
-      "stocks": 67,
-      "Cheapest third": 0.09782895509230588,
-      "Middle third": 0.28332249964310663,
-      "Most expensive third": 0.291924044974677,
-      "All stocks (equal weight)": 0.22536694087457682,
-      "S&P 500 (SPY)": 0.2961834651130273,
-      "rank_correlation": -0.31135765025141676
+      "stocks": 64,
+      "Cheapest third": 0.15386919224280626,
+      "Middle third": 0.2372654528305848,
+      "Most expensive third": 0.30222125938465666,
+      "All stocks (equal weight)": 0.23222961332818218,
+      "S&P 500 (SPY)": 0.29618328634052893,
+      "rank_correlation": -0.15705128205128205
     },
     {
       "year": 2024,
-      "stocks": 68,
-      "Cheapest third": 0.19870691280447944,
-      "Middle third": 0.0727281278264747,
-      "Most expensive third": 0.1074551856672472,
-      "All stocks (equal weight)": 0.12708451583870817,
-      "S&P 500 (SPY)": 0.08799927699093457,
-      "rank_correlation": 0.11134862770546244
+      "stocks": 69,
+      "Cheapest third": 0.21213806592878154,
+      "Middle third": 0.06242905808708916,
+      "Most expensive third": 0.0962671521224503,
+      "All stocks (equal weight)": 0.1236114253794403,
+      "S&P 500 (SPY)": 0.08799926640100986,
+      "rank_correlation": 0.11578370478626233
     },
     {
       "year": 2025,
       "stocks": 67,
-      "Cheapest third": 0.09195534294926491,
-      "Middle third": 0.18940159742383858,
-      "Most expensive third": 0.10565220645094239,
-      "All stocks (equal weight)": 0.1286545289041784,
-      "S&P 500 (SPY)": 0.18143826461002788,
-      "rank_correlation": -0.008340649692712908
+      "Cheapest third": 0.11311777461331514,
+      "Middle third": 0.1681561642003653,
+      "Most expensive third": 0.10573158934294838,
+      "All stocks (equal weight)": 0.12865452550431022,
+      "S&P 500 (SPY)": 0.18143813393391817,
+      "rank_correlation": 0.021230744672360125
     }
   ],
   "three_year": {
-    "Cheapest third": 0.13392070287774682,
-    "Middle third": 0.12226846752529874,
-    "Most expensive third": 0.15310015141148492
+    "Cheapest third": 0.14749819642525522,
+    "Middle third": 0.12973417846957777,
+    "Most expensive third": 0.13608965428789868
   },
-  "three_year_beat": 0,
+  "three_year_beat": 9,
   "three_year_n": 12
 }

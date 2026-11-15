@@ -331,10 +331,11 @@ def main(argv=None) -> int:
     p.add_argument("--wacc", type=float, help="Stocks: discount rate / WACC (e.g. 0.09)")
     p.add_argument("--return", dest="required_return", type=float, help="Funds: required yearly return (e.g. 0.09)")
     p.add_argument("--payout", type=float, help="Funds: share of earnings paid to owners (e.g. 0.85)")
-    p.add_argument("--years", type=int, help="Projection years (default 5 for stocks, 10 for funds)")
+    p.add_argument("--years", type=int, help="Projection years (default 10)")
     p.add_argument("--no-fade", action="store_true", help="Hold growth flat instead of fading to terminal")
-    p.add_argument("--base", choices=["avg3", "latest"], default="avg3",
-                   help="Stocks: start from the 3-year average cash flow (default) or the latest year")
+    p.add_argument("--base", choices=["avg3", "latest"], default=None,
+                   help="Stocks: start from the 3-year average cash flow or the latest year "
+                        "(default: latest year if cash flow has been growing, else the average)")
     p.add_argument("--growth-source", choices=["analyst", "history"], default="analyst",
                    help="Stocks: default growth from analysts' forecast (default) or past sales growth")
     p.add_argument("--export", metavar="FILE.xlsx", help="Save the full report as an Excel spreadsheet")
