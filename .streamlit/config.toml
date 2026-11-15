@@ -21,7 +21,7 @@ font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;70
 headingFont = "Plus Jakarta Sans:https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap, sans-serif"
 headingFontWeights = [800, 700, 700, 700, 600, 600]
 baseRadius = "0.75rem"
-buttonRadius = "0.6rem"
+buttonRadius = "0.5rem"
 showWidgetBorder = true
 blueColor = "#4f46e5"
 greenColor = "#059669"
