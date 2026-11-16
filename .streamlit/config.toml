@@ -7,32 +7,33 @@ headless = true
 [browser]
 gatherUsageStats = false
 
-# ---- Look and feel ----------------------------------------------------------------
-# Light main area with indigo accents; a deep navy sidebar for contrast.
+# ---- Look and feel: the Columnar Pad --------------------------------------------------
+# Pale green pad stock with a ledger-green sidebar; Public Sans for words (figures are set in
+# Source Serif 4 by the app's stylesheet); blue is reserved for the visitor's own assumptions.
 [theme]
 base = "light"
-primaryColor = "#4f46e5"
-backgroundColor = "#f5f7fb"
-secondaryBackgroundColor = "#eef1f8"
-textColor = "#0f172a"
-borderColor = "#e3e8f2"
-linkColor = "#4f46e5"
-font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
-headingFont = "Plus Jakarta Sans:https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap, sans-serif"
-headingFontWeights = [800, 700, 700, 700, 600, 600]
-baseRadius = "0.75rem"
-buttonRadius = "0.5rem"
+primaryColor = "#1e4636"
+backgroundColor = "#eef3ec"
+secondaryBackgroundColor = "#e2ebe3"
+textColor = "#16201b"
+borderColor = "#c9d8cd"
+linkColor = "#2747b8"
+font = "Public Sans:https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap, sans-serif"
+headingFont = "Public Sans:https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap, sans-serif"
+headingFontWeights = [700, 700, 700, 700, 600, 600]
+baseRadius = "0.5rem"
+buttonRadius = "0.375rem"
 showWidgetBorder = true
-blueColor = "#4f46e5"
-greenColor = "#059669"
-redColor = "#e11d48"
-orangeColor = "#f59e0b"
-violetColor = "#7c3aed"
-chartCategoricalColors = ["#4f46e5", "#0d9488", "#f59e0b", "#e11d48", "#7c3aed", "#0ea5e9", "#64748b"]
+blueColor = "#2747b8"
+greenColor = "#1f6b43"
+redColor = "#b4261d"
+orangeColor = "#8a5a00"
+violetColor = "#5b4a8a"
+chartCategoricalColors = ["#1e4636", "#4f8a6c", "#a8761b", "#5b4a8a", "#2f7f8f", "#8a978f", "#c9b27a"]
 
 [theme.sidebar]
-backgroundColor = "#111833"
-secondaryBackgroundColor = "#1c2547"
-textColor = "#e5e9f5"
-primaryColor = "#a5b4fc"
-borderColor = "#2b3560"
+backgroundColor = "#1e4636"
+secondaryBackgroundColor = "#173a2c"
+textColor = "#e3ede6"
+primaryColor = "#b8c6ff"
+borderColor = "#3a6b56"

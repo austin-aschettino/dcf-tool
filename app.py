@@ -6,6 +6,7 @@ Run with:  streamlit run app.py
 from __future__ import annotations
 
 import html
+import textwrap
 from urllib.parse import urlencode
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
@@ -61,7 +62,7 @@ from dcf.portfolio import (EXAMPLE as EXAMPLE_PORTFOLIO, format_holdings, holdin
 from dcf.quality import implied_prices, multiples, overall, peer_medians, peer_tickers, scorecard
 from dcf.fairvalue import fair_value_band, fair_value_methods, price_reading
 
-st.set_page_config(page_title="Stock & Fund Valuation", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Stock & Fund Valuation", page_icon=":material/calculate:", layout="wide")
 
 # --------------------------------------------------------------------------- #
 # Shareable links: the page address carries the ticker and slider settings
@@ -140,54 +141,61 @@ def is_dark() -> bool:
 
 CSS = """
 <style>
-/* Fonts: Inter when it has loaded, the system's sans-serif font until then (never a serif fallback) */
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap');
+/* ---- Columnar Pad --------------------------------------------------------------------------------
+   Words in Public Sans; every figure in Source Serif 4 with tabular lining numerals, at every size.
+   Ledger-green sidebar, pale green pad ground, flat panels with hairline rules, red ink for negatives,
+   and one blue ink reserved for the visitor's own assumptions. */
+:root {
+    --ground: #eef3ec; --panel: #fbfdfa; --rule: #c9d8cd; --hair: #dbe6dd;
+    --ink: #16201b; --ink-2: #2b3a32; --muted: #4f6057;
+    --ledger: #1e4636; --ledger-2: #2c5c48;
+    --you: #2747b8; --red: #b4261d; --cheap: #1f6b43; --amber: #8a5a00;
+    --figures: "Source Serif 4", Georgia, "Times New Roman", serif;
+}
 .stApp, .stApp button, .stApp input, .stApp textarea, .stApp [data-baseweb],
 .stApp :is(p, li, span, label, div, td, th, a, strong, em, small, code):not([data-testid="stIconMaterial"]):not([data-testid$="Icon"]):not([class*="material"]) {
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    font-family: "Pad Figures", "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
 .stApp h1, .stApp h2, .stApp h3, .stApp h4, .page-head h2, .home-card h4 {
-    font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    font-family: "Pad Figures", "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: -.01em; }
+::selection { background: rgba(39,71,184,.18); }
+@font-face {   /* digits and money signs only, borrowed from Source Serif 4: "one figure face at every size" */
+    font-family: "Pad Figures"; font-style: normal; font-weight: 400 700; font-display: swap;
+    src: url(https://fonts.gstatic.com/s/sourceserif4/v15/vEFI2_tTDB4M7-auWDN0ahZJW1gb8te1Xb7G.woff2) format("woff2");
+    unicode-range: U+0024-0025, U+0028-0029, U+002B, U+002E, U+0030-0039, U+2212; }   /* not , or -: words keep them */
+.stApp { font-variant-numeric: tabular-nums lining-nums; }
 
 /* Page width and spacing */
-[data-testid="stMainBlockContainer"] { padding-top: 2.2rem; max-width: 1320px; }
+[data-testid="stMainBlockContainer"] { padding-top: 2.2rem; max-width: 1280px; }
 
-/* Hero banner */
-.hero { background: linear-gradient(120deg, #4338ca 0%, #6d28d9 48%, #0891b2 100%); border-radius: 20px;
-        padding: 26px 30px; color: #fff; margin-bottom: 8px; position: relative; overflow: hidden;
-        box-shadow: 0 10px 30px rgba(67,56,202,.25); }
-.hero::after { content: ""; position: absolute; right: -60px; top: -80px; width: 260px; height: 260px;
-               border-radius: 50%; background: rgba(255,255,255,.10); }
-.hero h1 { color: #fff !important; font-size: 2.1rem; margin: 0 0 4px 0; padding: 0; line-height: 1.15; }
-.hero p { color: rgba(255,255,255,.88); margin: 0; font-size: 1.02rem; }
-.hero .pills { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
-.hero .pill { background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.25); border-radius: 999px;
-              padding: 3px 12px; font-size: .82rem; font-weight: 600; }
+/* Home: the opening statement, set flat on the pad (no banner) */
+.hero { padding: 6px 0 4px 0; margin-bottom: 4px; max-width: 760px; }
+.hero h1 { color: var(--ink) !important; font-size: 2.5rem; font-weight: 700; margin: 0 0 8px 0; padding: 0; line-height: 1.12; }
+.hero p { color: var(--ink-2); margin: 0; font-size: 1.08rem; line-height: 1.55; }
 
-/* Page title for a stock/fund/page with coloured chips */
+/* Page title for a stock/fund/page, with plain tags */
 .page-head { margin: 4px 0 0 0; }
-.page-head h2 { margin: 0 0 6px 0; padding: 0; font-size: 2rem; line-height: 1.2; }
-.chip { display: inline-block; border-radius: 999px; padding: 2px 10px; margin: 0 6px 6px 0;
-        font-size: .875rem; font-weight: 600; border: 1px solid transparent; }
-.chip.indigo { background: #eef2ff; color: #4338ca; border-color: #e0e7ff; }
-.chip.teal   { background: #f0fdfa; color: #0f766e; border-color: #ccfbf1; }
-.chip.amber  { background: #fffbeb; color: #b45309; border-color: #fef3c7; }
-.chip.violet { background: #f5f3ff; color: #6d28d9; border-color: #ede9fe; }
-.chip.slate  { background: #f1f5f9; color: #334155; border-color: #e2e8f0; }
+.page-head h2 { margin: 0 0 8px 0; padding: 0; font-size: 2.1rem; line-height: 1.15; font-weight: 700; }
+.chip { display: inline-block; border-radius: 4px; padding: 1px 8px; margin: 0 6px 6px 0;
+        font-size: .8125rem; font-weight: 600; border: 1px solid var(--rule); background: var(--panel); color: #2e4a3d; }
+.chip.ledger { color: var(--ledger); border-color: #9fbcac; }
+.chip.you { color: var(--you); border-color: #b9c4ea; }
 
-/* Numbers: each row of figures shares one box, with thin dividers between the figures (#12) */
+/* Figures: one serif face with tabular lining numerals, from the largest value to the smallest cell */
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] div, .fig, .footing td.v, .qval {
+    font-family: var(--figures) !important; font-variant-numeric: tabular-nums lining-nums; }
 [data-testid="stMetric"] { background: transparent; border: none; padding: 2px 4px; }
-[class*="st-key-kpis_"] { background: #fff; }
-[class*="st-key-kpis_"] [data-testid="stColumn"] + [data-testid="stColumn"] { border-left: 1px solid #e3e8f2; padding-left: 16px; }
-[data-testid="stMetricLabel"] p { color: #64748b; font-weight: 600; font-size: .875rem; }
-[data-testid="stMetricValue"] { font-weight: 700; color: #0f172a; font-size: 1.75rem; line-height: 1.2; }
-/* Labels and values wrap instead of being cut off with "…" */
+[class*="st-key-kpis_"] { background: var(--panel); }
+[class*="st-key-kpis_"] [data-testid="stColumn"] + [data-testid="stColumn"] { border-left: 1px solid var(--hair); padding-left: 16px; }
+[data-testid="stMetricLabel"] p { color: var(--muted); font-weight: 600; font-size: .8125rem; line-height: 1.3; }
+[data-testid="stMetricValue"] { font-weight: 600; color: var(--ink); font-size: 1.85rem; line-height: 1.2; }
 [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] div, [data-testid="stMetricLabel"] p,
 [data-testid="stMetricValue"], [data-testid="stMetricValue"] div,
 [data-testid="stMetricDelta"], [data-testid="stMetricDelta"] div {
     white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
-[data-testid="stMetricDelta"] { height: auto; max-width: 100%; width: fit-content; align-items: flex-start; }
+[data-testid="stMetricDelta"] { height: auto; max-width: 100%; width: fit-content; align-items: flex-start; border-radius: 4px; }
 [data-testid="stMetricDelta"] svg { flex: none; margin-top: 2px; }
-[data-testid="stMetricLabel"] p { line-height: 1.3; }
-/* A row of figures becomes a 2 × 2 grid when the box is narrow (sidebar open, tablet, phone) */
+/* A row of figures becomes a 2 × 2 grid when the box is narrow */
 [class*="st-key-kpis_"] { container-type: inline-size; }
 @container (max-width: 820px) {
   [class*="st-key-kpis_"] [data-testid="stHorizontalBlock"] { flex-wrap: wrap; row-gap: 14px; }
@@ -195,200 +203,206 @@ CSS = """
       min-width: calc(50% - 1rem) !important; width: calc(50% - 1rem) !important; }
   [class*="st-key-kpis_"] [data-testid="stColumn"]:nth-child(odd) { border-left: none !important; padding-left: 4px !important; }
 }
-@container (max-width: 440px) { [class*="st-key-kpis_"] [data-testid="stMetricValue"] { font-size: 1.3rem; } }
+@container (max-width: 440px) { [class*="st-key-kpis_"] [data-testid="stMetricValue"] { font-size: 1.35rem; } }
+[class*="st-key-kpis_compact"] [data-testid="stMetricValue"] { font-size: 1.5rem; }
+/* The one neutral change ("vs. your setting") */
+.st-key-kpis_compact_fair [data-testid="stColumn"]:nth-child(4) [data-testid="stMetricDelta"] {
+    color: var(--ink-2) !important; background: #e4ebe5 !important; }
 
-/* Cards: white panels on the light-grey page */
-.st-key-card, [class*="st-key-card_"], [class*="st-key-verdict_"], [class*="st-key-scen_"] { background: #fff; }
+/* Panels: flat pad sheets with a hairline edge, no shadows */
+.st-key-card, [class*="st-key-card_"], [class*="st-key-verdict_"], [class*="st-key-scen_"], [class*="st-key-foot"] {
+    background: var(--panel); border-color: var(--rule) !important; }
+[data-testid="stPlotlyChart"], [data-testid="stTable"] { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; }
+[data-testid="stPlotlyChart"] { padding: 4px 6px; box-sizing: border-box; overflow: hidden; }
+/* Tables: words in the sans, digits in the figure face (via "Pad Figures"); wide ones scroll inside their sheet */
+[data-testid="stTable"] { overflow-x: auto; }
+[data-testid="stTable"] table, [data-testid="stTable"] th, [data-testid="stTable"] td {
+    font-family: "Pad Figures", "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; }
 
-/* Verdict cards: a quiet tint and a hairline border in the result's colour */
-[class*="st-key-verdict_green"]   { background: #f0fdf6; border-color: #a7e3c6 !important; }
-[class*="st-key-verdict_red"]     { background: #fff5f6; border-color: #f4c0ca !important; }
-[class*="st-key-verdict_orange"]  { background: #fffaf0; border-color: #f2d6a0 !important; }
-[class*="st-key-verdict_neutral"] { background: #ffffff; border-color: #c9d1e1 !important; }
-/* The card on the "What's priced in" tab is a reading, not a second page verdict: plain white */
-[class*="st-key-verdict_"][class*="_reverse"] { background: #ffffff; border-color: #e3e8f2 !important; }
-[class*="st-key-scen_"] [data-testid="stMetric"] { box-shadow: none; border: none; padding: 4px 0; background: transparent; }
+/* Verdict: the headline's ink carries the result; the sheet stays plain */
+[class*="st-key-verdict_"] [data-testid="stHeadingWithActionElements"] h3 { font-size: 1.45rem; line-height: 1.25; padding-top: 2px; text-wrap: balance; }
+[class*="st-key-verdict_green"] .stMarkdownColoredText { color: var(--cheap) !important; }
+[class*="st-key-verdict_red"] .stMarkdownColoredText { color: var(--red) !important; }
+[class*="st-key-verdict_orange"] .stMarkdownColoredText { color: var(--amber) !important; }
+[class*="st-key-verdict_"] [data-testid="stMarkdownContainer"] p,
+[class*="st-key-verdict_"] [data-testid="stCaptionContainer"] p { max-width: 64ch; }
+/* The visitor's own numbers, wherever they're quoted in text */
+.you { color: var(--you); font-weight: 700; }
 
-/* Tabs as pills */
-[data-baseweb="tab-list"] { gap: 2px; background: #fff; padding: 5px; border-radius: 12px; border: 1px solid #e3e8f2;
-    flex-wrap: wrap; }
-[data-baseweb="tab"] { border-radius: 8px !important; padding: 8px 11px !important; height: auto !important;
-    transition: none !important; }   /* no fade: the label never shows white-on-white mid-switch (#5) */
-[data-baseweb="tab"] p { font-weight: 600; color: #475569; font-size: .875rem; }
-/* Keyboard focus, which the custom tab look had removed (#3) */
-[data-baseweb="tab"]:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
-[data-baseweb="tab"][aria-selected="true"]:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #4f46e5; }
-[data-baseweb="tab"][aria-selected="true"] { background: #4f46e5; }
-[data-baseweb="tab"][aria-selected="true"] p { color: #fff !important; }
+/* The footing: the computation added up as a column, ending on a double-ruled answer */
+.footing { width: 100%; border-collapse: collapse; margin: 2px 0 0 0; }
+.footing caption { text-align: left; font-size: .75rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+                   color: var(--muted); padding: 0 0 8px 0; }
+.footing td { padding: 7px 0; border-bottom: 1px solid var(--hair); font-size: .9375rem; color: var(--ink-2); vertical-align: baseline; }
+.footing td.v { text-align: right; font-size: 1.0625rem; color: var(--ink); white-space: nowrap; padding-left: 16px;
+                padding-right: .36em; }
+.footing td.v.neg { color: var(--red); padding-right: 0; }   /* the closing bracket hangs, so digits share a column */
+.footing tr.total td.v, .footing tr.price td.v { padding-right: .36em; }
+.footing tr.sub td { font-weight: 600; color: var(--ink); }
+.footing tr.total td { border-bottom: none; padding-top: 12px; font-weight: 700; color: var(--ink); }
+.footing tr.total td.v { font-size: 2.1rem; font-weight: 700; line-height: 1.1; }
+.footing tr.total td.v span { border-bottom: 4px double var(--ink); padding-bottom: 1px; }
+.footing tr.price td { border-bottom: none; padding-top: 10px; font-size: .9375rem; }
+.footing tr.price td.v { font-size: 1.25rem; }
+.footing .op { color: var(--muted); display: inline-block; width: 1.1em; }
+
+/* Tabs: an underline on a hairline, the way a ruled sheet marks its section */
+[data-baseweb="tab-list"] { gap: 4px; background: transparent; padding: 0; border-radius: 0; border-bottom: 1px solid var(--rule);
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }   /* one ruled line of tabs; scrolls on phones */
+[data-baseweb="tab"] { border-radius: 0 !important; padding: 10px 14px !important; height: auto !important; background: transparent !important;
+    border-bottom: 3px solid transparent !important; margin-bottom: -1px; transition: none !important; }
+[data-baseweb="tab"] p { font-weight: 600; color: var(--muted); font-size: .9rem; }
+[data-baseweb="tab"]:hover p { color: var(--ink); }
+[data-baseweb="tab"][aria-selected="true"] { border-bottom-color: var(--ledger) !important; }
+[data-baseweb="tab"][aria-selected="true"] p { color: var(--ledger) !important; }
+[data-baseweb="tab"]:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
 [data-baseweb="tab-highlight"], [data-baseweb="tab-border"] { display: none; }
 
-/* Section headings: 20px with a small solid marker; verdict headlines sit one step above (#7, #13) */
+/* Section headings: plain, with more room above than below */
 [data-testid="stMain"] [data-testid="stMarkdownContainer"] h3:not([class*="verdict"]) { font-weight: 700; }
-[data-testid="stMain"] [data-testid="stHeadingWithActionElements"] h3 { font-size: 1.25rem; padding: 6px 0 10px 0; }
-[class*="st-key-verdict_"] [data-testid="stHeadingWithActionElements"] h3 { font-size: 1.375rem; padding-top: 2px;
-    text-wrap: balance; }
-[data-testid="stMain"] [data-testid="stHeadingWithActionElements"] h3::before {
-    content: ""; display: inline-block; width: 4px; height: 1em; margin-right: 10px; vertical-align: -2px;
-    border-radius: 2px; background: #4f46e5; }
-[class*="st-key-verdict_"] [data-testid="stHeadingWithActionElements"] h3::before { display: none; }
+[data-testid="stMain"] [data-testid="stHeadingWithActionElements"] h3 { font-size: 1.25rem; padding: 18px 0 8px 0; }
+[class*="st-key-verdict_"] [data-testid="stHeadingWithActionElements"] h3, [class*="st-key-foot"] h3 { padding-top: 2px; }
 
 /* Paragraphs: no single word stranded on the last line */
 [data-testid="stMain"] [data-testid="stMarkdownContainer"] p, [data-testid="stMain"] [data-testid="stCaptionContainer"] p {
     text-wrap: pretty; }
 
-/* Charts and tables sit on white cards */
-[data-testid="stPlotlyChart"], [data-testid="stTable"] { background: #fff; border-radius: 12px; }
-
 /* Buttons */
-[data-testid="stMain"] .stButton button, [data-testid="stDownloadButton"] button { font-weight: 600; }
+[data-testid="stMain"] .stButton button, [data-testid="stDownloadButton"] button { font-weight: 600; border-radius: 6px; }
 [data-testid="stMain"] .stButton button:disabled { opacity: .55; cursor: default; }
-/* The verdict reads as prose: keep its lines to a comfortable length */
-[class*="st-key-verdict_"] [data-testid="stMarkdownContainer"] p,
-[class*="st-key-verdict_"] [data-testid="stCaptionContainer"] p { max-width: 64ch; }
-/* The one neutral change ("vs. your setting"): Streamlit's grey is too faint (3.4:1) */
-.st-key-kpis_compact_fair [data-testid="stColumn"]:nth-child(4) [data-testid="stMetricDelta"] {
-    color: #475569 !important; background: #eef1f6 !important; }
 
-
-/* Sidebar brand block */
-.side-brand { display: flex; align-items: center; gap: 10px; padding: 4px 0 14px 0; margin-bottom: 6px;
-              border-bottom: 1px solid #2b3560; }
-.side-brand .logo { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; font-size: 20px;
-                    background: linear-gradient(135deg, #6366f1, #06b6d4); }
-.side-brand b { color: #fff; font-size: 1.02rem; display: block; line-height: 1.2; }
-.side-brand span { color: #9aa6c9; font-size: .75rem; }
-[data-testid="stSidebar"] h3 { color: #c7d2fe !important; font-size: .8rem !important; text-transform: uppercase;
-                               letter-spacing: .06em; margin-top: .4rem; }
-[data-testid="stSidebar"] input::placeholder { color: #a8b1d1; opacity: 1; }   /* 6.9:1 on the field */
-.side-label { color: #8b97bf; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+/* Sidebar: ledger-green bookcloth, compact enough that the first slider shows on a laptop screen */
+[data-testid="stSidebarHeader"] { height: 2.25rem; padding-top: .5rem; padding-bottom: 0; }
+[data-testid="stSidebarUserContent"] { padding-top: .25rem; }
+.side-brand { padding: 4px 0 16px 0; margin-bottom: 6px; border-bottom: 1px solid #3a6b56; }
+.side-brand b { color: #fff; font-size: 1.05rem; display: block; line-height: 1.25; font-weight: 700; }
+.side-brand span { color: #d3e3d9; font-size: .8125rem; }
+[data-testid="stSidebar"] h3 { color: #cfe0d5 !important; font-size: .75rem !important; text-transform: uppercase;
+                               letter-spacing: .08em; margin-top: .4rem; font-weight: 700; }
+[data-testid="stSidebar"] input::placeholder { color: #b9d0c2; opacity: 1; }
+/* Picked tickers are the visitor's own choices: blue ink on the pale blue tag (8:1) */
+[data-testid="stSidebar"] [data-baseweb="tag"] { background: #b8c6ff !important; }
+[data-testid="stSidebar"] [data-baseweb="tag"] span, [data-testid="stSidebar"] [data-baseweb="tag"] svg { color: #14256b !important; fill: #14256b !important; }
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { color: #d3e3d9 !important; text-wrap: pretty; }   /* 7:1 on the cloth */
+[data-testid="stMain"] [data-testid="stCaptionContainer"] p { color: var(--muted); }
+[data-testid="stCaptionContainer"] { opacity: 1 !important; }   /* Streamlit fades captions to 60%; the colours above are set to pass on their own */
+.side-label { color: #dce9e1; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
               margin: 2px 0 4px 4px; }
-
-/* Sidebar menu: full-width rows, the current page highlighted */
 [data-testid="stSidebar"] [class*="st-key-nav_"] button { justify-content: flex-start; border: none !important;
-    background: transparent; padding: 7px 12px; min-height: 0; border-radius: 8px; }
-[data-testid="stSidebar"] [class*="st-key-nav_"] button p { color: #cbd5e1; font-weight: 500; font-size: .95rem; }
+    background: transparent; padding: 7px 12px; min-height: 0; border-radius: 6px; }
+[data-testid="stSidebar"] [class*="st-key-nav_"] button p { color: #d5e4da; font-weight: 500; font-size: .95rem; }
 [data-testid="stSidebar"] [class*="st-key-nav_"] button:hover { background: rgba(255,255,255,.07); }
-[data-testid="stSidebar"] [class*="st-key-nav_"] [data-testid="stBaseButton-primary"] {
-    background: rgba(129,140,248,.22) !important; box-shadow: inset 3px 0 0 #a5b4fc; }
+[data-testid="stSidebar"] [class*="st-key-nav_"] [data-testid="stBaseButton-primary"] { background: #2c5c48 !important; }
 [data-testid="stSidebar"] [class*="st-key-nav_"] [data-testid="stBaseButton-primary"] p { color: #ffffff; font-weight: 700; }
-[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible { box-shadow: inset 3px 0 0 #a5b4fc, 0 0 0 2px #a5b4fc !important; }
+[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible { box-shadow: 0 0 0 2px #9db0ff !important; }
 [data-testid="stSidebar"] [class*="st-key-nav_"] { margin-bottom: -10px; }
+/* The assumptions are the visitor's own figures: their values read in the reserved blue ink */
+[data-testid="stSidebar"] [data-testid="stSliderThumbValue"], [data-testid="stSidebar"] [data-testid="stSliderThumbValue"] div {
+    color: #b8c6ff !important; font-family: var(--figures) !important; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* "Home ›" link above page titles */
 .st-key-crumb button { min-height: 0; height: 24px; padding: 0 2px; }
-.st-key-crumb button p { color: #4f46e5; font-weight: 600; font-size: .875rem; }
+.st-key-crumb button p { color: var(--ledger); font-weight: 600; font-size: .875rem; }
 .st-key-crumb button p, .st-key-crumb [data-testid="stMarkdownContainer"] p { margin: 0; line-height: 24px; }
-.st-key-crumb [data-testid="stMarkdown"] { margin-bottom: 0 !important; }   /* centre "›" on the Home link */
-.crumb-sep { color: #64748b; } .crumb-here { color: #475569; font-size: .875rem; }   /* 7.0:1 on the page */
+.st-key-crumb [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }   /* centre "›" on the Home link */
+.crumb-sep { color: var(--muted); } .crumb-here { color: var(--ink-2); font-size: .875rem; }
 .st-key-page_actions { padding-bottom: 6px; }
 
 /* Home page */
-.st-key-card_search { background: #fff; border-color: #c7d2fe !important; }
-.st-key-card_search h3 { margin-top: 0; }
-.pop-label { color: #64748b; font-size: .75rem; font-weight: 600; margin: 6px 0 2px 0; }
-.step { display: flex; gap: 12px; align-items: flex-start; }
-.step .num { flex: 0 0 30px; height: 30px; border-radius: 50%; background: #eef2ff; color: #4338ca; font-weight: 800;
-             display: grid; place-items: center; }
-.step b { display: block; color: #0f172a; margin-bottom: 2px; } .step span { color: #64748b; font-size: .875rem; }
+.st-key-card_search { background: var(--panel); }
+.st-key-card_search h3 { margin-top: 0; padding-top: 0 !important; }
+.pop-label { color: var(--muted); font-size: .75rem; font-weight: 600; margin: 6px 0 2px 0; }
+.step { display: flex; gap: 12px; align-items: baseline; border-top: 1px solid var(--rule); padding-top: 12px; }
+.step .num { flex: 0 0 auto; font-family: var(--figures); font-weight: 700; font-size: 1.5rem; color: var(--ledger); line-height: 1; }
+.step b { display: block; color: var(--ink); margin-bottom: 2px; } .step span { color: var(--muted); font-size: .9rem; }
+[class*="st-key-home_line_"] + [class*="st-key-home_line_"] { border-top: 1px solid var(--hair); padding-top: 12px; }
+.home-card h4 { margin: 0 0 4px 0; padding: 0; font-size: 1.05rem; font-weight: 700; }
+.home-card p { color: var(--muted); margin: 0; font-size: .9rem; line-height: 1.45; }
 
-/* Quality scorecard cards */
+/* Quality scorecard */
 .qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin: 6px 0 4px 0; }
-.qcard { background: #fff; border: 1px solid #e3e8f2; border-radius: 12px; padding: 14px 16px; }
+.qcard { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; }
 .qtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.qname { font-weight: 600; color: #475569; font-size: .875rem; }
-.qval { font-weight: 700; font-size: 1.25rem; color: #0f172a; margin: 4px 0 6px 0; }
-.qmean { color: #475569; font-size: .875rem; line-height: 1.4; }
-.qrule { color: #64748b; font-size: .75rem; margin-top: 6px; }   /* 4.8:1 contrast on white (#16) */
-.badge { border-radius: 999px; padding: 2px 10px; font-size: .75rem; font-weight: 700; white-space: nowrap; }
-.badge.Strong { background: #d1fae5; color: #047857; } .badge.OK { background: #fef3c7; color: #b45309; }
-.badge.Weak { background: #ffe4e6; color: #be123c; } .badge.na { background: #f1f5f9; color: #64748b; }
-
-/* Rows of metrics that hold ranges use slightly smaller numbers so they fit */
-[class*="st-key-kpis_compact"] [data-testid="stMetricValue"] { font-size: 1.4rem; }
+.qname { font-weight: 600; color: var(--ink-2); font-size: .875rem; }
+.qval { font-weight: 700; font-size: 1.35rem; color: var(--ink); margin: 4px 0 6px 0; }
+.qmean { color: var(--ink-2); font-size: .875rem; line-height: 1.4; }
+.qrule { color: var(--muted); font-size: .75rem; margin-top: 6px; }
+.badge { border-radius: 4px; padding: 1px 8px; font-size: .75rem; font-weight: 700; white-space: nowrap; border: 1px solid transparent; }
+.badge.Strong { background: #e2f0e6; color: #1f6b43; border-color: #b8d8c2; }
+.badge.OK { background: #f6edd9; color: #7a4f00; border-color: #e3cf9f; }
+.badge.Weak { background: #f8e3e1; color: #a2231a; border-color: #ebbdb8; }
+.badge.na { background: #e8eee9; color: var(--muted); }
 
 /* Explanation boxes: quiet one-line headings */
 [data-testid="stMain"] [data-testid="stExpander"] details { border: none; background: transparent; }
 [data-testid="stMain"] [data-testid="stExpander"] summary { padding: 2px 0; min-height: 0; }
-[data-testid="stMain"] [data-testid="stExpander"] summary p { color: #4f46e5; font-weight: 600; font-size: .875rem; }
+[data-testid="stMain"] [data-testid="stExpander"] summary p { color: var(--ledger); font-weight: 600; font-size: .875rem; }
+[data-testid="stMain"] [data-testid="stExpander"] summary:hover p { text-decoration: underline; text-underline-offset: 3px; }
 
-/* Home page cards */
-.home-card h4 { margin: 0 0 4px 0; padding: 0; }
-.home-card p { color: #64748b; margin: 0; font-size: .875rem; }
-
-/* Phones: a more compact header */
+/* Phones */
 @media (max-width: 640px) {
-    .hero { padding: 18px 18px; border-radius: 16px; }
-    .hero h1 { font-size: 1.45rem; }
-    .hero p { font-size: .9rem; }
-    .hero .pill { font-size: .74rem; padding: 2px 9px; }
-    .page-head h2 { font-size: 1.5rem; }
+    .hero h1 { font-size: 1.8rem; }
+    .hero p { font-size: .98rem; }
+    .page-head h2 { font-size: 1.55rem; }
+    .footing tr.total td.v { font-size: 1.75rem; }
+    .footing td { font-size: .875rem; } .footing td.v { font-size: 1rem; }
+    .st-key-page_actions { justify-content: flex-start !important; }
 }
 
-/* Footer */
-.footer { text-align: center; color: #556275; font-size: .75rem; padding: 10px 0 4px 0; }
-
-/* Shown only on phones, where the assumptions sit behind the collapsed sidebar (#11) */
-.mobile-only { display: none; color: #4f46e5; font-weight: 600; font-size: .875rem; margin: 0; }
+.footer { text-align: center; color: var(--muted); font-size: .75rem; padding: 10px 0 4px 0; }
+.mobile-only { display: none; color: var(--ledger); font-weight: 600; font-size: .875rem; margin: 0; }
 @media (max-width: 640px) { .mobile-only { display: block; } }
 </style>
 """
 DARK_CSS = """
 <style>
-.stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stBottomBlockContainer"] { background: #0b1020 !important; }
-[data-testid="stMain"] { color: #e2e8f0; }
-/* Metric changes: Streamlit's light-theme reds and greens vanish on navy, so set readable ones (all deltas use
-   the normal direction: down = red, up = green; the one neutral delta is matched by position below) */
-[data-testid="stMetricDelta"]:has([data-testid="stMetricDeltaIcon-Down"]) { color: #fda4af !important; background: rgba(244,63,94,.16) !important; }
-[data-testid="stMetricDelta"]:has([data-testid="stMetricDeltaIcon-Up"])   { color: #6ee7b7 !important; background: rgba(16,185,129,.16) !important; }
-.st-key-kpis_compact_fair [data-testid="stColumn"]:nth-child(4) [data-testid="stMetricDelta"] {
-    color: #cbd5e1 !important; background: rgba(148,163,184,.16) !important; }
+/* The pad at night: deep green-black ground, the same hairlines and inks lifted for contrast */
+:root {
+    --ground: #0e1814; --panel: #15231d; --rule: #2b4136; --hair: #22362c;
+    --ink: #e6eee8; --ink-2: #c9d6cd; --muted: #9fb2a6;
+    --ledger: #8fd1ad; --ledger-2: #2c5c48;
+    --you: #9db0ff; --red: #ff9a8f; --cheap: #7fd6a2; --amber: #f0c36b;
+}
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stBottomBlockContainer"] { background: var(--ground) !important; }
+[data-testid="stMain"] { color: var(--ink); }
 [data-testid="stMain"] [data-testid="stMarkdownContainer"] p, [data-testid="stMain"] [data-testid="stMarkdownContainer"] li,
 [data-testid="stMain"] [data-testid="stMarkdownContainer"] td, [data-testid="stMain"] [data-testid="stMarkdownContainer"] th,
-[data-testid="stMain"] label, [data-testid="stMain"] [data-testid="stWidgetLabel"] p { color: #e2e8f0; }
-[data-testid="stMain"] h1, [data-testid="stMain"] h2, [data-testid="stMain"] h3, [data-testid="stMain"] h4, .page-head h2 { color: #f8fafc !important; }
-[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p, .footer { color: #94a3b8 !important; }
+[data-testid="stMain"] label, [data-testid="stMain"] [data-testid="stWidgetLabel"] p { color: var(--ink); }
+[data-testid="stMain"] h1, [data-testid="stMain"] h2, [data-testid="stMain"] h3, [data-testid="stMain"] h4, .page-head h2, .hero h1 { color: #f4f8f5 !important; }
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p, .footer { color: var(--muted) !important; }
 [data-testid="stMetric"], .st-key-card, [class*="st-key-card_"], [class*="st-key-verdict_"], [class*="st-key-scen_"],
-[class*="st-key-kpis_"],
-[data-baseweb="tab-list"], [data-testid="stPlotlyChart"], [data-testid="stTable"], [data-testid="stExpander"] details,
-.qcard { background: #141b34 !important; border-color: #263056 !important; box-shadow: none !important; }
-[data-testid="stMetricValue"], [data-testid="stMetricValue"] div { color: #f8fafc !important; }
-[data-testid="stMetricLabel"] p { color: #94a3b8 !important; }
-[class*="st-key-verdict_green"]   { background: #10241f !important; border-color: #22604b !important; }
-[class*="st-key-verdict_red"]     { background: #28141f !important; border-color: #6b2b3c !important; }
-[class*="st-key-verdict_orange"]  { background: #272014 !important; border-color: #6b5021 !important; }
-[class*="st-key-verdict_neutral"], [class*="st-key-verdict_"][class*="_reverse"] {
-    background: #141b34 !important; border-color: #33406e !important; }
-[data-baseweb="tab"] p { color: #cbd5e1; }
-[class*="st-key-verdict_green"] .stMarkdownColoredText { color: #34d399 !important; }
-[class*="st-key-verdict_red"] .stMarkdownColoredText { color: #fb7185 !important; }
-[class*="st-key-verdict_orange"] .stMarkdownColoredText { color: #fbbf24 !important; }
-[data-testid="stTable"] table, [data-testid="stTable"] th, [data-testid="stTable"] td { color: #e2e8f0 !important; border-color: #263056 !important; background-color: transparent; }
+[class*="st-key-kpis_"], [class*="st-key-foot"], [data-testid="stPlotlyChart"], [data-testid="stTable"], .qcard {
+    background: var(--panel) !important; border-color: var(--rule) !important; box-shadow: none !important; }
+[data-testid="stMetric"] { background: transparent !important; }
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] div { color: #f4f8f5 !important; }
+[data-testid="stMetricLabel"] p { color: var(--muted) !important; }
+[data-testid="stMetricDelta"]:has([data-testid="stMetricDeltaIcon-Down"]) { color: #ffb4ab !important; background: rgba(255,120,105,.14) !important; }
+[data-testid="stMetricDelta"]:has([data-testid="stMetricDeltaIcon-Up"])   { color: #8fe0b0 !important; background: rgba(110,214,150,.14) !important; }
+.st-key-kpis_compact_fair [data-testid="stColumn"]:nth-child(4) [data-testid="stMetricDelta"] {
+    color: var(--ink-2) !important; background: rgba(201,214,205,.12) !important; }
+[data-baseweb="tab-list"] { background: transparent !important; }
+[data-baseweb="tab"] p { color: var(--muted); }
+[data-testid="stTable"] table, [data-testid="stTable"] th, [data-testid="stTable"] td { color: var(--ink) !important; border-color: var(--rule) !important; background-color: transparent; }
 /* Data grids are drawn on a canvas, so they're darkened with a colour inversion that keeps red and green. */
 [data-testid="stDataFrame"], [data-testid="stDataEditor"] { filter: invert(0.9) hue-rotate(180deg); background: #ffffff !important; }
-[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p, [data-testid="stAlert"] [data-testid="stMarkdownContainer"] li { color: #dbe2ff !important; }
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p, [data-testid="stAlert"] [data-testid="stMarkdownContainer"] li { color: var(--ink) !important; }
 [data-testid="stMain"] .stButton button, [data-testid="stPopover"] button, [data-testid="stButtonGroup"] button,
-[data-testid="stDownloadButton"] button {
-    background: #141b34; color: #e2e8f0; border-color: #2f3a66; }
-[data-testid="stPopoverBody"] { background: #141b34 !important; color: #e2e8f0; }
-[data-testid="stMain"] hr { border-color: #263056; }
-.chip.indigo { background: rgba(99,102,241,.18); color: #c7d2fe; border-color: rgba(99,102,241,.35); }
-.chip.teal   { background: rgba(20,184,166,.15); color: #99f6e4; border-color: rgba(20,184,166,.3); }
-.chip.amber  { background: rgba(245,158,11,.15); color: #fde68a; border-color: rgba(245,158,11,.3); }
-.chip.violet { background: rgba(139,92,246,.18); color: #ddd6fe; border-color: rgba(139,92,246,.35); }
-.chip.slate  { background: rgba(148,163,184,.15); color: #e2e8f0; border-color: rgba(148,163,184,.3); }
-[data-testid="stMain"] [data-testid="stExpander"] summary p { color: #a5b4fc !important; }
-.home-card p { color: #94a3b8 !important; }
-.st-key-card_search { background: #141b34 !important; border-color: #2f3a66 !important; }
-.step b { color: #f8fafc !important; } .step span, .pop-label, .crumb-here { color: #94a3b8 !important; }
-.step .num { background: rgba(99,102,241,.25) !important; color: #c7d2fe !important; }
-.st-key-crumb button p { color: #a5b4fc !important; }
-.qcard .qmean { color: #cbd5e1 !important; }
-[class*="st-key-kpis_"] [data-testid="stColumn"] + [data-testid="stColumn"] { border-left-color: #263056 !important; }
-[data-testid="stMetric"] { background: transparent !important; }
-.mobile-only { color: #a5b4fc !important; } .qcard .qrule { color: #94a3b8 !important; } .qcard .qname, .qcard .qval { color: #f8fafc !important; }
+[data-testid="stDownloadButton"] button { background: var(--panel); color: var(--ink); border-color: var(--rule); }
+[data-testid="stMain"] .stButton button[kind="primary"] { background: #2c5c48; color: #fff; border-color: #2c5c48; }
+[data-testid="stPopoverBody"] { background: var(--panel) !important; color: var(--ink); }
+[data-testid="stMain"] hr { border-color: var(--rule); }
+.chip { background: var(--panel); border-color: var(--rule); color: var(--ink-2); }
+.chip.ledger { color: var(--ledger); } .chip.you { color: var(--you); }
+.st-key-crumb button p { color: var(--ledger) !important; }
+.badge.Strong { background: rgba(110,214,150,.14); color: #8fe0b0; border-color: rgba(110,214,150,.3); }
+.badge.OK { background: rgba(240,195,107,.14); color: #f0c36b; border-color: rgba(240,195,107,.3); }
+.badge.Weak { background: rgba(255,120,105,.14); color: #ffb4ab; border-color: rgba(255,120,105,.3); }
+.badge.na { background: rgba(201,214,205,.1); color: var(--muted); }
+[class*="st-key-kpis_"] [data-testid="stColumn"] + [data-testid="stColumn"] { border-left-color: var(--hair) !important; }
+[data-testid="stSidebar"] { background: #15362a !important; }
+.st-key-crumb button { background: transparent !important; }
 </style>
 """
-
 
 
 def chips_html(chips) -> str:
@@ -397,11 +411,11 @@ def chips_html(chips) -> str:
 
 
 NAV = [  # (mode code, menu label)
-    ("home", "🏠  Home"),
-    ("single", "🔎  Value a stock or fund"),
-    ("compare", "⚖️  Compare"),
-    ("portfolio", "🧺  My portfolio"),
-    ("backtest", "🧪  Does the model work?"),
+    ("home", "Home"),
+    ("single", "Value a stock or fund"),
+    ("compare", "Compare"),
+    ("portfolio", "My portfolio"),
+    ("backtest", "Does the model work?"),
 ]
 
 
@@ -410,11 +424,11 @@ def page_head(title: str, chips=()):
     code = {v: k for k, v in MODES.items()}.get(st.session_state.get("mode"), "home")
     section = dict(NAV).get(code, "").split("  ", 1)[-1]
     crumb = st.container(horizontal=True, gap="small", vertical_alignment="center", key="crumb")
-    crumb.button("🏠 Home", key="crumb_home", type="tertiary", on_click=open_mode, args=("home",),
+    crumb.button("Home", key="crumb_home", type="tertiary", on_click=open_mode, args=("home",),
                  help="Back to the start page")
     crumb.markdown(f'<span class="crumb-sep">›</span> <span class="crumb-here">{html.escape(section)}</span>',
                    unsafe_allow_html=True)
-    left, right = st.columns([3, 1.4], vertical_alignment="bottom")
+    left, right = st.columns([2.4, 1.6], vertical_alignment="bottom")
     left.markdown(f'<div class="page-head"><h2>{html.escape(title)}</h2>{chips_html(chips)}</div>',
                   unsafe_allow_html=True)
     # Download / Share sit on the title row instead of a row of their own; callers fill this slot.
@@ -459,24 +473,26 @@ st.markdown(CSS, unsafe_allow_html=True)
 if is_dark():
     st.markdown(DARK_CSS, unsafe_allow_html=True)
 
-BLUE = "#4f46e5"      # indigo: the app's main colour
-GREY = "#94a3b8"
-AMBER = "#f59e0b"
-TEAL = "#0d9488"
-RED = "#e11d48"
-BLUE_FILL = "rgba(79,70,229,{a})"
-GREEN_BG = "background-color: rgba(5,150,105,0.20)"
-RED_BG = "background-color: rgba(225,29,72,0.16)"
-CURRENT_CELL = "font-weight: 800; outline: 3px solid #4f46e5; outline-offset: -3px"
+# Columnar Pad inks. BLUE is reserved for the visitor's own assumptions and what's computed from them.
+BLUE = "#9db0ff" if is_dark() else "#2747b8"
+GREY = "#7d8f85" if is_dark() else "#8a978f"
+AMBER = "#d6a24a" if is_dark() else "#a8761b"     # analysts
+TEAL = "#6fb08f" if is_dark() else "#3f6b57"      # ledger green, for peers and past figures
+RED = "#ff9a8f" if is_dark() else "#b4261d"       # red ink: negatives and "worth less"
+BLUE_FILL = "rgba(157,176,255,{a})" if is_dark() else "rgba(39,71,184,{a})"
+LEDGER_FILL = "rgba(143,209,173,{a})" if is_dark() else "rgba(30,70,54,{a})"   # market and method context
+GREEN_BG = "background-color: rgba(31,107,67,0.16)"
+RED_BG = "background-color: rgba(180,38,29,0.13)"
+CURRENT_CELL = "font-weight: 800; outline: 3px solid #2747b8; outline-offset: -3px"
 NO_TOOLBAR = {"displayModeBar": False}
-INK = "#e2e8f0" if is_dark() else "#0f172a"      # today's price: the reference line, not a warning
-MUTED = "#94a3b8" if is_dark() else "#64748b"
-PAPER = "#141b34" if is_dark() else "#ffffff"     # chart background
+INK = "#e6eee8" if is_dark() else "#16201b"      # today's price: the reference line, not a warning
+MUTED = "#9fb2a6" if is_dark() else "#4f6057"
+PAPER = "#15231d" if is_dark() else "#fbfdfa"     # chart background: the panel sheet
 # Scenarios are an ordered range, so they share one hue that deepens from pessimistic to optimistic
 # (red and green are kept for value vs. price).
-SCENARIO_COLORS = ({"Pessimistic": "#6366f1", "Middle (your settings)": "#a5b4fc", "Optimistic": "#e0e7ff"}
+SCENARIO_COLORS = ({"Pessimistic": "#6f84d8", "Middle (your settings)": "#9db0ff", "Optimistic": "#dbe3ff"}
                    if is_dark() else
-                   {"Pessimistic": "#818cf8", "Middle (your settings)": "#4f46e5", "Optimistic": "#312e81"})
+                   {"Pessimistic": "#8193d6", "Middle (your settings)": "#2747b8", "Optimistic": "#14256b"})
 TRADING_DAYS_1Y = 252
 
 
@@ -528,15 +544,15 @@ def explain(text: str, label: str = "How to read this") -> None:
 def chart_layout(fig: go.Figure, height: int = 380, **kw) -> go.Figure:
     layout = dict(
         height=height,
-        font=dict(family="Inter, sans-serif", color="#cbd5e1" if is_dark() else "#334155"),
-        paper_bgcolor="#141b34" if is_dark() else "#ffffff", plot_bgcolor="#141b34" if is_dark() else "#ffffff",
-        xaxis=dict(gridcolor="#263056" if is_dark() else "#eef1f6"), yaxis=dict(gridcolor="#263056" if is_dark() else "#eef1f6"),
-        hoverlabel=dict(font=dict(family="Inter, sans-serif")),
+        font=dict(family="Pad Figures, Public Sans, sans-serif", color="#c9d6cd" if is_dark() else "#2b3a32"),
+        paper_bgcolor=PAPER, plot_bgcolor=PAPER,
+        xaxis=dict(gridcolor="#22362c" if is_dark() else "#e3ebe5"), yaxis=dict(gridcolor="#22362c" if is_dark() else "#e3ebe5"),
+        hoverlabel=dict(font=dict(family="Pad Figures, Public Sans, sans-serif")),
         margin=dict(l=10, r=10, t=40, b=10),
         legend=dict(orientation="h", y=-0.18, x=0),
         hovermode="x unified",
     )
-    text = "#cbd5e1" if is_dark() else "#334155"
+    text = "#c9d6cd" if is_dark() else "#2b3a32"
     layout["legend"]["font"] = dict(color=text)
     for axis in ("xaxis", "yaxis"):
         layout[axis].update(tickfont=dict(color=text), title=dict(font=dict(color=text)))
@@ -548,7 +564,7 @@ def chart_layout(fig: go.Figure, height: int = 380, **kw) -> go.Figure:
             kw[part] = {**layout[part], **extra}
     layout.update(kw)  # callers can override any default
     fig.update_layout(**layout)
-    zero = "#33406e" if is_dark() else "#e3e8f2"
+    zero = "#2b4136" if is_dark() else "#c9d8cd"
     fig.update_xaxes(zerolinecolor=zero)
     fig.update_yaxes(zerolinecolor=zero)
     return fig
@@ -635,6 +651,7 @@ def verdict_box(name: str, value: float, price: float, upside: float, noun: str,
                 f"Based on your assumptions, the model estimates it's worth **${value:,.2f}** per {noun}, "
                 f"{where} today's price of **${price:,.2f}**.\n\n{extra}"
             ),
+            unsafe_allow_html=True,   # the visitor's own figure is set in the reserved blue ink
         )
         st.caption("What the math says with your sidebar assumptions, not a prediction of where the price will go.")
         if caveats:
@@ -653,7 +670,8 @@ def priced_in_sentence(g: float, mine: float, years: int, terminal: float, what:
     compare = "faster than" if g > mine + 0.005 else ("slower than" if g < mine - 0.005 else "about the same as")
     return (
         f"**What's priced in:** to justify today's price, {what} would need to grow about **{g:.1%} a year** "
-        f"for the next {years} years (then {terminal:.1%} after). That's {compare} the {mine:.1%} you're assuming."
+        f"for the next {years} years (then {terminal:.1%} after). That's {compare} the "
+        f'<span class="you">{mine:.1%}</span> you\'re assuming.'
     )
 
 
@@ -872,13 +890,13 @@ def outlook_tab(data, a, ticker: str, noun: str, today_value: float = None) -> N
         fig.add_scatter(x=path.index, y=path["wide_high"], mode="lines", line=dict(width=0),
                         showlegend=False, hoverinfo="skip")
         fig.add_scatter(x=path.index, y=path["wide_low"], mode="lines", line=dict(width=0), fill="tonexty",
-                        fillcolor=BLUE_FILL.format(a=0.10), name="Wide range (19 in 20)", hoverinfo="skip")
+                        fillcolor=LEDGER_FILL.format(a=0.10), name="Wide range (19 in 20)", hoverinfo="skip")
         fig.add_scatter(x=path.index, y=path["likely_high"], mode="lines", line=dict(width=0),
                         showlegend=False, hoverinfo="skip")
         fig.add_scatter(x=path.index, y=path["likely_low"], mode="lines", line=dict(width=0), fill="tonexty",
-                        fillcolor=BLUE_FILL.format(a=0.25), name="Likely range (2 in 3)", hoverinfo="skip")
+                        fillcolor=LEDGER_FILL.format(a=0.22), name="Likely range (2 in 3)", hoverinfo="skip")
         fig.add_scatter(x=path.index, y=path["center"], mode="lines", name="Middle (normal return)",
-                        line=dict(color=BLUE, dash="dash", width=2))
+                        line=dict(color=TEAL, dash="dash", width=2))
     if not hist.empty:
         fig.add_scatter(x=hist.index, y=hist.values, mode="lines", name="Price (last 12 months)",
                         line=dict(color=GREY, width=2))
@@ -903,7 +921,7 @@ def outlook_tab(data, a, ticker: str, noun: str, today_value: float = None) -> N
     show(fig)
     explain(label="How to read this chart", text=
         "- The **grey line** is the actual price over the last 12 months.\n"
-        "- The **blue fan** shows how far the price could typically wander from here, based on how much it has "
+        "- The **green fan** shows how far the price could typically wander from here, based on how much it has "
         "moved in the past year. The darker band holds about 2 out of 3 outcomes, the lighter band about 19 out "
         "of 20. It widens over time because uncertainty builds up, and it's lopsided (more room up than down) "
         "because prices can rise without limit but can't fall below zero.\n"
@@ -923,7 +941,7 @@ def outlook_tab(data, a, ticker: str, noun: str, today_value: float = None) -> N
         def tint(v):
             if pd.isna(v):
                 return ""
-            return "color: #059669; font-weight: 600" if v >= 0 else "color: #e11d48; font-weight: 600"
+            return "color: #1f6b43; font-weight: 600" if v >= 0 else "color: #b4261d; font-weight: 600"
 
         style = t.style.format({
             "Price": "${:,.2f}", "Change vs. today": "{:+.1f}%", "Yearly return incl. dividends": "{:+.1f}%",
@@ -1053,7 +1071,7 @@ def implied_grid_view(grid: pd.DataFrame, ref: float, cur_rate: float, cur_years
             return RED_BG
         if v < ref - 0.02:
             return GREEN_BG
-        return "background-color: rgba(245,158,11,0.22)"
+        return "background-color: rgba(138,90,0,0.14)"
 
     def styles(df: pd.DataFrame) -> pd.DataFrame:
         out = pd.DataFrame("", index=df.index, columns=df.columns)
@@ -1107,15 +1125,15 @@ def reverse_tab_stock(c, a, g_implied: float, cash_name: str, rate_name: str) ->
     m4.metric("Yardstick", pct(ref),
               help="Average of the company's past sales growth and analysts' forecast for next year.")
 
-    rows = [("Priced in by today's price", g_implied, BLUE), ("Your assumption", a.growth_rate, "#7c3aed"),
-            ("Yardstick (sales record + analysts)", ref, "#475569")]
-    rows += [(k, v, TEAL if k.startswith("Analysts") else GREY) for k, v in bench.items()]
+    rows = [("Priced in by today's price", g_implied, TEAL), ("Your assumption", a.growth_rate, BLUE),
+            ("Yardstick (sales record + analysts)", ref, MUTED)]
+    rows += [(k, v, AMBER if k.startswith("Analysts") else GREY) for k, v in bench.items()]
     growth_bars(rows, "Growth priced in vs. reality checks")
     explain(label="How to read this chart", text=
-        "**How to read it:** the **indigo bar** is the growth the market is betting on. The other bars are reality "
-        "checks: what you assume, the yardstick (the slate bar: the average of past sales growth and analysts' "
+        "**How to read it:** the **green bar** is the growth the market is betting on. The other bars are reality "
+        "checks: what you assume, the yardstick (the dark grey bar: the average of past sales growth and analysts' "
         "forecast, used for the verdict above), how fast sales and cash flow actually grew over the past few years, and what "
-        "analysts expect next year. If the indigo bar is much longer than all of them, the price needs the company "
+        "analysts expect next year. If the green bar is much longer than all of them, the price needs the company "
         "to beat its own record. If it's shorter, the price asks for less than the company has been delivering."
     )
 
@@ -1130,9 +1148,9 @@ def reverse_tab_stock(c, a, g_implied: float, cash_name: str, rate_name: str) ->
         st.markdown(f"### The {cash_name} today's price is counting on")
         fig = go.Figure()
         fig.add_bar(x=hist_years, y=[v / div for v in c.valuation_cash_flow], name="Actual (past)", marker_color=GREY)
-        fig.add_bar(x=proj_years, y=[v / div for v in path], name="Needed to justify the price", marker_color=BLUE)
+        fig.add_bar(x=proj_years, y=[v / div for v in path], name="Needed to justify the price", marker_color=TEAL)
         fig.add_scatter(x=proj_years, y=[v / div for v in mine], name="Your forecast", mode="lines+markers",
-                        line=dict(color=TEAL, width=3))
+                        line=dict(color=BLUE, width=3))
         chart_layout(fig, yaxis=dict(ticksuffix=unit, tickprefix="$"))
         show(fig)
         st.markdown(esc(
@@ -1141,9 +1159,9 @@ def reverse_tab_stock(c, a, g_implied: float, cash_name: str, rate_name: str) ->
             f"growing {a.terminal_growth:.1%} a year after that."
         ))
         explain(
-            "**What this shows:** grey bars are what the company actually produced. **Indigo bars** are what it "
-            "would need to produce, growing at the rate priced in, for today's price to be fair. The **teal line** "
-            "is your own forecast from the sidebar. Where the teal line is above the indigo bars, you expect more "
+            "**What this shows:** grey bars are what the company actually produced. **Green bars** are what it "
+            "would need to produce, growing at the rate priced in, for today's price to be fair. The **blue line** "
+            "is your own forecast from the sidebar. Where the blue line is above the green bars, you expect more "
             "than the price needs; below them, less."
         )
 
@@ -1186,7 +1204,7 @@ def reverse_tab_fund(f, a, r, g_implied: float) -> None:
               help="The yearly return you'd earn buying at today's price if your growth assumptions come true, after fees.")
     m4.metric("Long-run yardstick", pct(ref), help="Rough long-run yearly earnings growth of large US companies.")
 
-    growth_bars([("Priced in by today's price", g_implied, BLUE), ("Your assumption", a.growth_rate, "#7c3aed"),
+    growth_bars([("Priced in by today's price", g_implied, TEAL), ("Your assumption", a.growth_rate, BLUE),
                  ("Long-run average (large US companies)", ref, GREY)],
                 "Growth priced in vs. reality checks")
 
@@ -1196,8 +1214,8 @@ def reverse_tab_fund(f, a, r, g_implied: float) -> None:
         st.markdown("### Profit per fund share that today's price is counting on")
         fig = go.Figure()
         fig.add_bar(x=["Today"], y=[f.earnings_per_share], name="Today", marker_color=GREY)
-        fig.add_bar(x=years, y=path, name="Needed to justify the price", marker_color=BLUE)
-        fig.add_scatter(x=years, y=r.earnings, name="Your forecast", mode="lines+markers", line=dict(color=TEAL, width=3))
+        fig.add_bar(x=years, y=path, name="Needed to justify the price", marker_color=TEAL)
+        fig.add_scatter(x=years, y=r.earnings, name="Your forecast", mode="lines+markers", line=dict(color=BLUE, width=3))
         chart_layout(fig, yaxis=dict(tickprefix="$", title="$ per fund share"))
         show(fig)
         st.markdown(esc(
@@ -1278,7 +1296,7 @@ def probability_view(simulate, price: float, central: float, noun: str, key: str
     fig = go.Figure()
     fig.add_histogram(x=vals[vals < price], xbins=bins, name="Below today's price", marker_color=RED, opacity=0.75)
     fig.add_histogram(x=vals[vals >= price], xbins=bins, name="Above today's price", marker_color=TEAL, opacity=0.75)
-    fig.add_vline(x=price, line_dash="dash", line_color=AMBER, line_width=2,
+    fig.add_vline(x=price, line_dash="dash", line_color=INK, line_width=2,
                   annotation_text=f"Today ${price:,.0f}", annotation_position="top")
     fig.add_vline(x=central, line_color=BLUE, line_width=2,
                   annotation_text=f"Your estimate ${central:,.0f}", annotation_position="bottom right")
@@ -1377,7 +1395,7 @@ def peers_view(c, dcf_value) -> None:
         fig = go.Figure(go.Bar(x=values, y=labels, orientation="h", marker_color=colors,
                                text=[f"${v:,.0f}" for v in values], textposition="outside", cliponaxis=False,
                                hovertemplate="%{y}: $%{x:,.2f}<extra></extra>"))
-        fig.add_vline(x=c.price, line_dash="dash", line_color=AMBER, line_width=2,
+        fig.add_vline(x=c.price, line_dash="dash", line_color=INK, line_width=2,
                       annotation_text=f"Today ${c.price:,.0f}", annotation_position="top")
         chart_layout(fig, height=80 + 50 * len(labels), showlegend=False, hovermode="closest",
                      xaxis=dict(tickprefix="$", tickformat=",.0f", range=[0, max(values + [c.price]) * 1.2]),
@@ -1415,7 +1433,9 @@ def company_tab(c, ticker: str, dcf_value=None) -> None:
 # Portfolio
 # --------------------------------------------------------------------------- #
 
-COLOUR_HEX = {"green": TEAL, "orange": AMBER, "red": RED, "grey": GREY}
+# How demanding a price is: the verdict inks (cheap green, amber ink, red ink), not the chart's source colours
+COLOUR_HEX = {"green": "#7fd6a2" if is_dark() else "#1f6b43", "orange": "#f0c36b" if is_dark() else "#8a5a00",
+              "red": RED, "grey": GREY}
 
 
 
@@ -1571,7 +1591,7 @@ def render_portfolio() -> None:
             except Exception:
                 failed.append(t)
     if failed:
-        st.warning(f"Couldn't load: {', '.join(failed)}. Check the spelling.", icon="⚠️")
+        st.warning(f"Couldn't load: {', '.join(failed)}. Check the spelling.", icon=":material/warning:")
     if not rows:
         return
 
@@ -1596,7 +1616,7 @@ def render_portfolio() -> None:
                   help="Share of your money in holdings whose price assumes more growth than their track record "
                        "(red in the table below).")
 
-    t_break, t_future = st.tabs(["📊 Breakdown", "🔮 Future value"])
+    t_break, t_future = st.tabs(["Breakdown", "Future value"])
     with t_future:
         future_value_view(rows, total, exp)
     with t_break:
@@ -1610,8 +1630,8 @@ def render_portfolio() -> None:
             if len(mix) > 7:
                 top["Other"] = mix.iloc[7:].sum()
             fig = go.Figure(go.Pie(labels=list(top.index), values=list(top.values), hole=0.55, sort=False,
-                                   marker=dict(colors=["#4f46e5", "#0d9488", "#f59e0b", "#e11d48", "#7c3aed",
-                                                       "#0ea5e9", "#64748b", "#94a3b8"]),
+                                   marker=dict(colors=["#1e4636", "#4f8a6c", "#a8761b", "#5b4a8a", "#2f7f8f",
+                                                       "#8a978f", "#c9b27a", "#b9c9bf"]),   # ledger palette
                                    textinfo="percent", hovertemplate="%{label}: $%{value:,.0f}<extra></extra>"))
             chart_layout(fig, height=340, hovermode="closest", legend=dict(orientation="v", x=1.02, y=0.5))
             show(fig)
@@ -1642,7 +1662,7 @@ def render_portfolio() -> None:
         tone = {r["Ticker"]: r["Colour"] for r in rows}
 
         def tint(row):
-            bg = {"green": GREEN_BG, "red": RED_BG, "orange": "background-color: rgba(245,158,11,0.22)"}.get(tone[row["Ticker"]], "")
+            bg = {"green": GREEN_BG, "red": RED_BG, "orange": "background-color: rgba(138,90,0,0.14)"}.get(tone[row["Ticker"]], "")
             return ["" if col != "Expectations" else bg for col in row.index]
 
         st.markdown("### Holdings")
@@ -1675,7 +1695,7 @@ def render_portfolio() -> None:
 # Fair value by method ("football field")
 # --------------------------------------------------------------------------- #
 
-KIND_COLOURS = {"model": BLUE, "peers": TEAL, "analysts": AMBER, "market": GREY}
+KIND_COLOURS = {"model": BLUE, "peers": TEAL, "analysts": AMBER, "market": GREY}   # the model runs on your settings
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -1735,7 +1755,7 @@ def fair_value_verdict(name: str, price: float, band, methods, tail: str, caveat
             f"The valuation methods' middle estimates run from **${lo:,.2f}** to **${hi:,.2f}** a share "
             f"(middle **${mid:,.2f}**). {AGREEMENT[r.width]}. Today's price, **${price:,.2f}**, is {where}. "
             f"{count} The chart below shows each method.\n\n{tail}"
-        ))
+        ), unsafe_allow_html=True)
         st.caption("The range is where the methods' middle estimates fall; with four or more methods, the single "
                    "highest and lowest are left out so one unusual result can't stretch it. Not a prediction of "
                    "where the price will go.")
@@ -1768,7 +1788,7 @@ def football_field(methods, price: float, band, distorted: bool) -> None:
     dark = is_dark()
     fig = go.Figure()
     if with_band:
-        fig.add_vrect(x0=band[0], x1=band[2], fillcolor=BLUE_FILL.format(a=0.18 if dark else 0.08),
+        fig.add_vrect(x0=band[0], x1=band[2], fillcolor=LEDGER_FILL.format(a=0.14 if dark else 0.08),
                       line_width=0, layer="below")
         fig.add_annotation(x=(band[0] + band[2]) / 2, y=-0.68, xref="x", yref="y", showarrow=False,
                            text="Most methods agree here", font=dict(color=MUTED, size=12))
@@ -1782,9 +1802,13 @@ def football_field(methods, price: float, band, distorted: bool) -> None:
     fig.add_bar(
         x=[m.high - m.low for m in shown], base=[m.low for m in shown], y=rows, orientation="h", width=0.34,
         marker=dict(color=fills, opacity=opacity, line=dict(color=edges, width=edge_w)),
-        customdata=[[METHOD_LABELS.get(m.name, m.name), m.low, m.high, m.mid, m.note] for m in shown],
+        # notes wrapped short, so the hover label fits inside a phone-width card
+        customdata=[[METHOD_LABELS.get(m.name, m.name), m.low, m.high, m.mid, "<br>".join(textwrap.wrap(m.note, 30))]
+                    for m in shown],
         hovertemplate="%{customdata[0]}<br>$%{customdata[1]:,.0f} to $%{customdata[2]:,.0f}"
                       "<br>middle $%{customdata[3]:,.2f}<br>%{customdata[4]}<extra></extra>",
+        selected=dict(marker=dict(opacity=1.0)), unselected=dict(marker=dict(opacity=0.22)),
+        hoverlabel=dict(align="left"),
         showlegend=False,
     )
     fig.add_scatter(x=[m.mid for m in shown], y=rows, mode="markers", name="Middle estimate",
@@ -1803,6 +1827,7 @@ def football_field(methods, price: float, band, distorted: bool) -> None:
                   annotation_text=f"Today ${price:,.0f}", annotation_position="top",
                   annotation_font=dict(color=INK, size=12))
     top = max([m.high for m in shown] + [price]) * 1.08
+    fig.update_layout(clickmode="event+select")   # click a bar to read that method alone; double-click to reset
     chart_layout(fig, height=60 + 66 * len(shown) + (24 if with_band else 0), hovermode="closest", showlegend=False,
                  xaxis=dict(tickprefix="$", tickformat=",.0f", range=[0, top], nticks=6, tickangle=0),
                  yaxis=dict(visible=False, range=[-0.95 if with_band else -0.45, len(shown) - 0.3]),
@@ -1811,7 +1836,8 @@ def football_field(methods, price: float, band, distorted: bool) -> None:
     explain(label="How to read this chart", text=
         "**What this shows:** several different ways of answering *what is one share worth?*, side by side. "
         "Each bar runs from that method's low to high estimate; the dark tick is its middle. The **dashed line** "
-        "is today's price and the **shaded band** is where most methods agree.\n\n"
+        "is today's price and the **shaded band** is where most methods agree. Click a bar to read that method on its "
+        "own; double-click the chart to bring the others back.\n\n"
         "- **Cash-flow model:** this app's main model, using your sidebar settings. The bar runs from the "
         "pessimistic to the optimistic scenario.\n"
         "- **Cash-flow model, underlying cash:** the same model, but counting only the spending needed to "
@@ -1828,6 +1854,67 @@ def football_field(methods, price: float, band, distorted: bool) -> None:
     )
 
 
+def footing_html(rows, total_label: str, total: str, price: float, caption: str) -> str:
+    """The signature move: a computation added up as a column, ending on a double-ruled answer.
+
+    rows: [(operator, label, figure, kind)] with kind "", "sub" (a subtotal) or "neg" (red ink, in parentheses).
+    """
+    out = [f'<table class="footing"><caption>{html.escape(caption)}</caption>']
+    for op, label, figure, kind in rows:
+        cls = ' class="sub"' if kind == "sub" else ""
+        neg = " neg" if kind == "neg" else ""
+        out.append(f'<tr{cls}><td><span class="op">{html.escape(op)}</span>{html.escape(label)}</td>'
+                   f'<td class="v{neg}">{html.escape(figure)}</td></tr>')
+    out.append(f'<tr class="total"><td>{html.escape(total_label)}</td><td class="v"><span>{html.escape(total)}</span></td></tr>')
+    out.append(f'<tr class="price"><td>Today\'s price</td><td class="v">${price:,.2f}</td></tr></table>')
+    return "".join(out)
+
+
+def footing_panel(c, r, years: int, payout: bool) -> None:
+    """How the cash-flow model gets to its per-share value, footed like a worksheet."""
+    div, unit = scale_for([r.enterprise_value, r.equity_value, sum(r.pv_fcf), r.pv_terminal_value])
+
+    def col(x: float) -> str:   # every amount in the column's one unit, so the figures foot by eye
+        return f"${x / div:,.2f}{unit}"
+
+    pv_next, pv_after = col(sum(r.pv_fcf)), col(r.pv_terminal_value)
+    if payout:
+        rows = [("", f"Cash returned, next {years} years", pv_next, ""),
+                ("+", "Cash returned, all years after", pv_after, ""),
+                ("=", "For shareholders", col(r.equity_value), "sub")]
+    else:
+        debt = (("−", "Debt, net of cash", f"({col(r.net_debt)})", "neg") if r.net_debt > 0 else
+                ("+", "Cash, net of debt", col(-r.net_debt), ""))
+        rows = [("", f"Cash, next {years} years", pv_next, ""),
+                ("+", "Cash, all years after", pv_after, ""),
+                ("=", "Whole business", col(r.enterprise_value), "sub"),
+                debt,
+                ("=", "For shareholders", col(r.equity_value), "sub")]
+    rows.append(("÷", "Shares", share_count(c.shares_outstanding), ""))
+    st.html(footing_html(rows, "Value per share today", f"${r.value_per_share:,.2f}", c.price,
+                         "How the cash-flow model gets there"))
+    if r.terminal_share > 0.75:
+        st.caption(esc(f"{r.terminal_share:.0%} of this comes from the years after the forecast, so it's very "
+                       "sensitive to long-term growth and the required return."))
+    if payout:
+        explain(label="How the estimate is built", text=
+            "All figures are in today's money. The first two lines add up the cash the company is expected to hand "
+            f"to shareholders (dividends + buybacks): first the next {years} years, then everything after. For a "
+            "bank, that total *is* the value for shareholders: debt isn't subtracted, because borrowing and lending "
+            "is the bank's normal business and the cash returned is what's left after it. Divide by the number of "
+            "shares to get one share's value.")
+    else:
+        explain(label="How the estimate is built", text=
+            "All figures are in today's money.\n\n"
+            f"1. Add up the cash the company is expected to produce: the next {years} years one by one, then "
+            "everything after that (the \"terminal value\").\n"
+            "2. Together they give the **value of the whole business**.\n"
+            "3. **Debt is subtracted** (minus any cash the company holds), because lenders get paid before owners. "
+            "Red figures in brackets are amounts taken away, the way accountants write them.\n"
+            "4. What's left is the **value for shareholders**; divide by the number of shares for one share.\n\n"
+            "If the second line is much bigger than the first, most of the value depends on the distant future.")
+
+
 def render_company(c, ticker: str) -> None:
     k = lambda name: f"{name}__{ticker}"  # widget keys, per ticker so defaults reset on change
     payout = c.is_financial
@@ -1836,12 +1923,16 @@ def render_company(c, ticker: str) -> None:
 
     method = ("Valued from cash returned to shareholders (bank method)" if payout
               else "Discounted cash flow (DCF) model")
-    actions = page_head(f"{c.name} ({c.ticker})", [("Stock", "indigo"), (c.industry or c.sector, "slate"),
-                                                   ("Bank method" if payout else "", "violet")])
+    actions = page_head(f"{c.name} ({c.ticker})", [("Stock", "ledger"), (c.industry or c.sector, ""),
+                                                   ("Bank method" if payout else "", "ledger")])
 
     # ---- Sidebar ------------------------------------------------------------
     with st.sidebar:
         st.markdown("### 2. Adjust the assumptions")
+        # The sliders (the visitor's own numbers) come first; the choices of starting point sit beneath them.
+        slider_box = st.container()
+        start_box = st.container()
+    with start_box:
         has_analyst = c.analyst_growth is not None
         st.session_state.setdefault(k("base"), default_base(c))   # latest year if cash flow has been growing
         # With no positive cash flow there's nothing for a growth rate to grow, so don't offer the choice.
@@ -1901,8 +1992,7 @@ def render_company(c, ticker: str) -> None:
         return
 
     g_key, tg_key, w_key = k(f"g_{src}_{base}"), k("tg"), k("w")
-    with st.sidebar:
-        st.caption(f"Starting values come from {growth_label}. Drag a slider to try a different scenario.")
+    with slider_box:
         growth = pct_slider(
             "Growth next year", -10.0, 30.0, d.growth_rate, 0.5, g_key,
             f"How fast you expect the company's {cash_name} to grow next year.",
@@ -1927,7 +2017,8 @@ def render_company(c, ticker: str) -> None:
         )
         st.button("Reset to defaults", icon=":material/restart_alt:", on_click=reset_assumptions, args=(ticker,),
                   width="stretch")
-        st.caption(f"Model's suggested {rate_name.split(' (')[0].lower()}: {d.wacc:.1%} (based on beta {c.beta:.2f}).")
+        st.caption(f"Starting values come from {growth_label}. Model's suggested "
+                   f"{rate_name.split(' (')[0].lower()}: {d.wacc:.1%} (based on beta {c.beta:.2f}).")
 
     if wacc <= terminal:
         # Keep every tab working: say what's wrong and which value is being used until it's fixed.
@@ -1952,10 +2043,14 @@ def render_company(c, ticker: str) -> None:
         peer_prices = peer_prices_for(ticker)
     methods = fair_value_methods(c, a, peer_prices, fetch_history(ticker), distorted=bool(caveats))
     band = fair_value_band(methods)
-    if band:
-        fair_value_verdict(c.name, c.price, band, methods, tail, caveats)
-    else:
-        verdict_box(c.name, r.value_per_share, c.price, r.upside, "share", tail, caveats=caveats)
+    v_col, f_col = st.columns([1.2, 1], gap="large")
+    with v_col:
+        if band:
+            fair_value_verdict(c.name, c.price, band, methods, tail, caveats)
+        else:
+            verdict_box(c.name, r.value_per_share, c.price, r.upside, "share", tail, caveats=caveats)
+    with f_col, st.container(border=True, key="foot_stock"):
+        footing_panel(c, r, years, payout)
     download_button(company_tables(c, a, r, fetch_history(ticker)), ticker, actions)
 
     t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_data = st.tabs(
@@ -1986,57 +2081,6 @@ def render_company(c, ticker: str) -> None:
         st.markdown("### Fair value by method")
         football_field(methods, c.price, band, distorted=bool(caveats))
 
-        st.markdown(f"### How the cash-flow model gets to ${r.value_per_share:,.2f} a share today")
-        div, unit = scale_for([r.enterprise_value, r.equity_value])
-        if payout:
-            measure = ["relative", "relative", "total"]
-            labels = [f"Cash returned over<br>the next {years} years", "Cash returned in<br>all years after",
-                      "Value for<br>shareholders"]
-            ys = [sum(r.pv_fcf) / div, r.pv_terminal_value / div, 0]
-            texts = [money(sum(r.pv_fcf)), money(r.pv_terminal_value), money(r.equity_value)]
-        else:
-            measure = ["relative", "relative", "total", "relative", "total"]
-            labels = [f"Cash from the<br>next {years} years", "Cash from all<br>years after",
-                      "Value of the<br>whole business", "Minus debt<br>(net of cash)", "Value for<br>shareholders"]
-            ys = [sum(r.pv_fcf) / div, r.pv_terminal_value / div, 0, -r.net_debt / div, 0]
-            texts = [money(sum(r.pv_fcf)), money(r.pv_terminal_value), money(r.enterprise_value),
-                     money(-r.net_debt), money(r.equity_value)]
-        fig = go.Figure(go.Waterfall(
-            orientation="v", measure=measure, x=labels, y=ys, text=texts,
-            textposition="outside", cliponaxis=False,
-            connector=dict(line=dict(color=GREY, dash="dot")),
-            increasing=dict(marker=dict(color=BLUE)),
-            decreasing=dict(marker=dict(color=RED)),
-            totals=dict(marker=dict(color=TEAL)),
-        ))
-        chart_layout(fig, height=420, yaxis=dict(ticksuffix=unit, tickprefix="$"), showlegend=False)
-        show(fig)
-        st.markdown(esc(
-            f"Value for shareholders **{money(r.equity_value)}** ÷ **{share_count(c.shares_outstanding)}** shares "
-            f"= **${r.value_per_share:,.2f} per share**."
-        ))
-        if r.terminal_share > 0.75:
-            st.markdown(esc(f"**{r.terminal_share:.0%}** of this estimate comes from the years after the forecast "
-                            "(the second bar), so it's very sensitive to the long-term growth and required return."))
-        if payout:
-            explain(
-                "**What this shows:** how the estimate is built, in today's money. The **blue bars** add up the cash "
-                f"the company is expected to hand to shareholders (dividends + buybacks): first the next {years} years, "
-                "then everything after. For a bank, that total *is* the value for shareholders: debt isn't "
-                "subtracted, because borrowing and lending is the bank's normal business and the cash returned is "
-                "what's left after it."
-            )
-        else:
-            explain(
-                "**What this shows:** how the estimate is built, step by step, all in today's money.\n\n"
-                f"1. **Blue bars** add up the cash the company is expected to produce: first the next {years} years one "
-                "by one, then everything after that (the \"terminal value\").\n"
-                "2. Together they give the **value of the whole business**.\n"
-                "3. **Debt is subtracted** (minus any cash the company holds), because lenders get paid before owners.\n"
-                "4. What's left is the **value for shareholders**, divided by the number of shares to get the "
-                "value of one share.\n\n"
-                "If the second blue bar is much taller than the first, most of the value depends on the distant future."
-            )
         price_chart(ticker, c.price, scen, "share")
 
     with t_reverse:
@@ -2058,7 +2102,7 @@ def render_company(c, ticker: str) -> None:
         fig.add_bar(x=hist_years, y=[v / div for v in past], name="Actual (past)", marker_color=GREY)
         fig.add_bar(x=proj_years, y=[v / div for v in r.projected_fcf], name="Forecast", marker_color=BLUE)
         fig.add_scatter(x=proj_years, y=[v / div for v in r.pv_fcf], name="Forecast, in today's money",
-                        mode="lines+markers", line=dict(color=AMBER, width=3))
+                        mode="lines+markers", line=dict(color=INK, width=2.5))
         chart_layout(fig, yaxis=dict(ticksuffix=unit, tickprefix="$", title=f"$ {dict(T='trillions', B='billions').get(unit, 'millions')}"))
         show(fig)
         what = ("*cash returned to shareholders*: the dividends a company pays plus the shares it buys back. "
@@ -2071,7 +2115,7 @@ def render_company(c, ticker: str) -> None:
             "**How to read it:**\n"
             "- **Grey bars** are what the company actually produced in past years.\n"
             "- **Blue bars** are the forecast, growing at the rates you set in the sidebar.\n"
-            "- The **orange line** is each forecast year converted into *today's money*. It sits below the blue bars "
+            "- The **dark line** is each forecast year converted into *today's money*. It sits below the blue bars "
             "because money received in the future is worth less than money today (you could invest today's money and "
             "earn a return in the meantime). The further away the year, the bigger the gap."
         )
@@ -2162,7 +2206,7 @@ def fund_holdings(f: FundData) -> None:
         if f.sectors:
             s = f.sectors_table().sort_values("Weight")
             fig = go.Figure(go.Bar(
-                x=s["Weight"], y=s["Sector"], orientation="h", marker_color=BLUE,
+                x=s["Weight"], y=s["Sector"], orientation="h", marker_color=TEAL,
                 text=[f"{w:.0%}" for w in s["Weight"]], textposition="outside",
             ))
             chart_layout(fig, height=380, showlegend=False, hovermode="closest",
@@ -2182,8 +2226,8 @@ def fund_holdings(f: FundData) -> None:
 
 def render_fund(f: FundData, ticker: str) -> None:
     kind = "Mutual fund" if f.fund_type == "MUTUALFUND" else "ETF"
-    actions = page_head(f"{f.name} ({f.ticker})", [("Index fund", "indigo"),
-                                                   (f"Fee {f.expense_ratio:.2%} a year", "slate")])
+    actions = page_head(f"{f.name} ({f.ticker})", [("Index fund", "ledger"),
+                                                   (f"Fee {f.expense_ratio:.2%} a year", "")])
 
     if not f.can_value:
         with st.container(border=True, key="verdict_orange"):
@@ -2205,7 +2249,6 @@ def render_fund(f: FundData, ticker: str) -> None:
 
     with st.sidebar:
         st.markdown("### 2. Adjust the assumptions")
-        st.caption("The fund is valued as if all its companies were one big business.")
         growth = pct_slider(
             "Earnings growth next year", -5.0, 15.0, d.growth_rate, 0.25, g_key,
             "How fast you expect the combined profits of the fund's companies to grow next year.",
@@ -2228,11 +2271,16 @@ def render_fund(f: FundData, ticker: str) -> None:
                           help="How many years are forecast one by one before switching to long-term growth.")
         st.button("Reset to defaults", icon=":material/restart_alt:", on_click=reset_assumptions, args=(ticker,),
                   width="stretch")
-        st.caption(f"Model's suggested required return: {d.required_return:.1%} (based on beta {f.beta:.2f}).")
+        st.caption(f"The fund is valued as if all its companies were one big business. Model's suggested "
+                   f"required return: {d.required_return:.1%} (based on beta {f.beta:.2f}).")
 
     if req + f.expense_ratio <= terminal:
-        st.error("The required return must be higher than long-term growth, otherwise the value would be infinite.")
-        st.stop()
+        used = round(req + f.expense_ratio - 0.01, 4)
+        st.warning(esc(
+            f"Long-term growth ({terminal:.2%}) has to be lower than the required return plus the fund's fee "
+            f"({req + f.expense_ratio:.2%}), or the value would be infinite. The page is using long-term growth of "
+            f"**{used:.2%}** until you lower long-term growth or raise the required return."), icon=":material/warning:")
+        terminal = used
 
     SHARE.update(fg=st.session_state[g_key], ftg=st.session_state[tg_key], fr=st.session_state[r_key],
                  fp=st.session_state[k("fp")], fy=years, ff=int(fade))
@@ -2243,10 +2291,22 @@ def render_fund(f: FundData, ticker: str) -> None:
 
     extra = ""
     if pd.notna(r.implied_return):
-        extra = (f"📈 **Expected return:** buying at today's price, the model expects about **{pct(r.implied_return)} a year** "
-                 f"(after fees), compared with the **{req:.1%}** you asked for.\n\n")
+        extra = (f"**Expected return:** buying at today's price, the model expects about **{pct(r.implied_return)} a year** "
+                 f'(after fees), compared with the <span class="you">{req:.1%}</span> you asked for.\n\n')
     extra += priced_in_sentence(g_implied, growth, years, terminal, "the companies' combined earnings")
-    verdict_box(f.name, r.value_per_share, f.price, r.upside, "fund share", extra)
+    v_col, f_col = st.columns([1.2, 1], gap="large")
+    with v_col:
+        verdict_box(f.name, r.value_per_share, f.price, r.upside, "fund share", extra)
+    with f_col, st.container(border=True, key="foot_fund"):
+        st.html(footing_html(
+            [("", f"Cash, next {years} years", f"${sum(r.pv_cash):,.2f}", ""),
+             ("+", "Cash, all years after", f"${r.pv_terminal_value:,.2f}", "")],
+            "Value per fund share today", f"${r.value_per_share:,.2f}", f.price, "How the model gets there"))
+        explain(label="How the estimate is built", text=
+            "Figures are per fund share, in today's money, after the fund's fee. The first line adds up the cash the "
+            f"fund's companies are expected to hand to owners (dividends and buybacks) over the next {years} years; "
+            "the second adds everything after that. Their total is the estimated value of one fund share, set "
+            "against today's price beneath it.")
     download_button(fund_tables(f, a, r, fetch_history(ticker)), ticker, actions)
 
     t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_inside = st.tabs(
@@ -2272,26 +2332,6 @@ def render_fund(f: FundData, ticker: str) -> None:
         )
         fund_facts(f)
 
-        st.markdown("### Where the value comes from")
-        fig = go.Figure(go.Waterfall(
-            measure=["relative", "relative", "total"],
-            x=[f"Cash from the<br>next {years} years", "Cash from all<br>years after", "Estimated value<br>per share"],
-            y=[sum(r.pv_cash), r.pv_terminal_value, 0],
-            text=[f"${sum(r.pv_cash):,.0f}", f"${r.pv_terminal_value:,.0f}", f"${r.value_per_share:,.0f}"],
-            textposition="outside", cliponaxis=False,
-            connector=dict(line=dict(color=GREY, dash="dot")),
-            increasing=dict(marker=dict(color=BLUE)),
-            totals=dict(marker=dict(color=TEAL)),
-        ))
-        fig.add_hline(y=f.price, line_dash="dash", line_color=AMBER,
-                      annotation_text=f"Current price ${f.price:,.0f}", annotation_position="top left")
-        chart_layout(fig, height=420, yaxis=dict(tickprefix="$"), showlegend=False)
-        show(fig)
-        explain(
-            "**What this shows:** the estimated value of one fund share, split into the cash expected over the "
-            f"next {years} years and the cash from every year after that, both in today's money. The **dashed orange "
-            "line** is the current price: if the green bar is shorter, the model values the fund below its price."
-        )
         price_chart(ticker, f.price, scen, "fund")
 
     with t_reverse:
@@ -2307,7 +2347,7 @@ def render_fund(f: FundData, ticker: str) -> None:
         fig.add_bar(x=proj_years, y=r.earnings, name="Profit per fund share", marker_color=GREY)
         fig.add_bar(x=proj_years, y=r.cash, name="Paid to owners", marker_color=BLUE)
         fig.add_scatter(x=proj_years, y=r.pv_cash, name="Paid to owners, in today's money",
-                        mode="lines+markers", line=dict(color=AMBER, width=3))
+                        mode="lines+markers", line=dict(color=INK, width=2.5))
         chart_layout(fig, yaxis=dict(tickprefix="$", title="$ per fund share"))
         show(fig)
         explain(
@@ -2315,7 +2355,7 @@ def render_fund(f: FundData, ticker: str) -> None:
             f"- **Grey bars:** that slice of profit each year. It starts at **${f.earnings_per_share:,.2f}** "
             f"(price ${f.price:,.2f} ÷ P/E {f.pe:.1f}) and grows at your growth rate.\n"
             f"- **Blue bars:** the part ({payout:.0%}) that companies hand back to owners as dividends and buybacks.\n"
-            "- **Orange line:** that cash converted into today's money. It shrinks over time because money further in "
+            "- **Dark line:** that cash converted into today's money. It shrinks over time because money further in "
             f"the future is worth less today. The fund's {f.expense_ratio:.2%} yearly fee is included here."
         )
         st.markdown("### Year-by-year forecast")
@@ -2419,7 +2459,7 @@ def render_compare() -> None:
             except Exception:
                 failed.append(t)
     if failed:
-        st.warning(f"Couldn't load: {', '.join(failed)}. Check the spelling.", icon="⚠️")
+        st.warning(f"Couldn't load: {', '.join(failed)}. Check the spelling.", icon=":material/warning:")
     if not rows:
         return
 
@@ -2483,7 +2523,7 @@ def render_compare() -> None:
         fig.add_bar(y=g.index, x=g["Growth assumed"] / 100, name="Growth assumed (default)", orientation="h",
                     marker_color=GREY)
         fig.add_bar(y=g.index, x=g["Growth priced in"] / 100, name="Growth priced in by the market", orientation="h",
-                    marker_color=BLUE)
+                    marker_color=TEAL)
         chart_layout(fig, height=140 + 60 * len(g), barmode="group", hovermode="closest",
                      xaxis=dict(tickformat=".0%"))
         show(fig)
@@ -2492,7 +2532,7 @@ def render_compare() -> None:
         "**How to read this:**\n"
         "- **Gap vs. price:** green bars point right when the estimate is *above* today's price (looks cheap), red "
         "bars point left when it's *below* (looks expensive).\n"
-        "- **Growth priced in vs. assumed:** the blue bar is how fast each one would need to grow for today's price "
+        "- **Growth priced in vs. assumed:** the green bar is how fast each one would need to grow for today's price "
         "to make sense; the grey bar is the model's default guess. When blue is much longer than grey, the market "
         "is far more optimistic than the default assumptions.\n"
         "- **Expected return** (funds) is the yearly return you'd earn buying today if the assumptions hold.\n\n"
@@ -2506,7 +2546,7 @@ def render_compare() -> None:
 # --------------------------------------------------------------------------- #
 
 GROUP_COLORS = {"Cheapest third": TEAL, "Middle third": GREY, "Most expensive third": RED,
-                "All stocks (equal weight)": "#64748b", "S&P 500 (SPY)": AMBER}
+                "All stocks (equal weight)": MUTED, "S&P 500 (SPY)": INK}
 
 
 def correlation_words(rho: float) -> str:
@@ -2637,7 +2677,7 @@ def render_backtest() -> None:
         clip = used.assign(upside_c=used["upside"].clip(-1, 2), fwd_c=used["fwd_1y"].clip(-0.8, 1.5))
         fig = go.Figure(go.Scatter(
             x=clip["upside_c"], y=clip["fwd_c"], mode="markers",
-            marker=dict(size=7, color=clip["year"], colorscale="Blues", showscale=True,
+            marker=dict(size=7, color=clip["year"], colorscale=[[0, "#dbe6dd"], [1, "#1e4636"]] if not is_dark() else [[0, "#22362c"], [1, "#8fd1ad"]], showscale=True,
                         colorbar=dict(title="Year"), line=dict(width=0.5, color="white")),
             text=[f"{t} {y}" for t, y in zip(used["ticker"], used["year"])],
             hovertemplate="%{text}<br>Model gap vs. price: %{x:+.0%}<br>Next-year return: %{y:+.0%}<extra></extra>",
@@ -2852,14 +2892,15 @@ def popular_row(key: str) -> None:
 
 def render_home() -> None:
     st.markdown(
-        '<div class="hero"><h1>📈 Stock &amp; Fund Valuation</h1>'
+        '<div class="hero"><h1>What is a share actually worth?</h1>'
         "<p>Find out what a stock or index fund is worth, what its price is betting on, and how your own "
-        "portfolio could grow. Made for beginners: every chart explains itself.</p></div>",
+        "portfolio could grow. Made for beginners: every number is worked out in the open and every chart "
+        "explains itself.</p></div>",
         unsafe_allow_html=True,
     )
 
     with st.container(border=True, key="card_search"):
-        st.markdown("### 🔎 Look up a stock or fund")
+        st.markdown("### Look up a stock or fund")
         row = st.container(horizontal=True, gap="small", vertical_alignment="bottom")
         row.text_input("Ticker", key="home_search", placeholder="Type a ticker, e.g. AAPL, HD or VOO, and press Enter",
                        on_change=_search_submitted, label_visibility="collapsed", width="stretch")
@@ -2868,21 +2909,23 @@ def render_home() -> None:
 
     st.markdown("### What would you like to do?")
     cards = [
-        ("single", "🔎 Value a stock or fund", "See what it's worth, what the price assumes and how it could move.",
+        ("single", "Value a stock or fund", "See what it's worth, what the price assumes and how it could move.",
          "Value a stock"),
-        ("compare", "⚖️ Compare", "Put up to six stocks and funds side by side with the same yardstick.",
+        ("compare", "Compare", "Put up to six stocks and funds side by side with the same yardstick.",
          "Compare"),
-        ("portfolio", "🧺 My portfolio", "Enter what you own: see your mix, expected return and future value.",
+        ("portfolio", "My portfolio", "Enter what you own: see your mix, expected return and future value.",
          "Open my portfolio"),
-        ("backtest", "🧪 Does the model work?", "How the model's calls on ~70 companies turned out since 2012.",
+        ("backtest", "Does the model work?", "How the model's calls on ~70 companies turned out since 2012.",
          "See the results"),
     ]
-    cols = st.columns(4)
-    for col, (code, title, text, cta) in zip(cols, cards):
-        with col, st.container(border=True, key=f"card_home_{code}", height="stretch",
-                               vertical_alignment="distribute"):
-            st.html(f'<div class="home-card"><h4>{html.escape(title)}</h4><p>{html.escape(text)}</p></div>')
-            st.button(f"{cta} →", key=f"home_open_{code}", on_click=open_mode, args=(code,), width="stretch")
+    # A ruled index, one line per part of the app, rather than a grid of look-alike cards
+    with st.container(border=True, key="card_home_index"):
+        for code, title, text, cta in cards:
+            line = st.container(horizontal=True, vertical_alignment="center", gap="medium", key=f"home_line_{code}")
+            line.html(f'<div class="home-card"><h4>{html.escape(title)}</h4><p>{html.escape(text)}</p></div>',
+                      width="stretch")
+            line.button(cta, icon=":material/arrow_forward:", key=f"home_open_{code}", on_click=open_mode,
+                        args=(code,))
 
     st.markdown("### New here? Three steps")
     steps = [
@@ -2906,8 +2949,8 @@ def render_home() -> None:
 st.session_state.setdefault("mode", MODES["home"])
 mode_code = {v: k for k, v in MODES.items()}.get(st.session_state["mode"], "home")
 with st.sidebar:
-    st.markdown('<div class="side-brand"><div class="logo">📈</div><div><b>Valuation Lab</b>'
-                '<span>Stocks &amp; index funds, explained</span></div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="side-brand"><b>Stock &amp; Fund Valuation</b>'
+                '<span>What a share is worth, worked out in plain English</span></div>', unsafe_allow_html=True)
     st.markdown('<div class="side-label">Menu</div>', unsafe_allow_html=True)
     for code, label in NAV:
         st.button(label, key=f"nav_{code}", on_click=open_mode, args=(code,), width="stretch",
@@ -2941,7 +2984,7 @@ else:
             help="Common stocks and index funds. Click and type to search the list.",
         )
         custom = st.text_input(
-            "Or type any other ticker",
+            "Other ticker",
             key="custom_ticker",
             placeholder="e.g. HD, DIS, VIG",
             help="A ticker is the short code a stock trades under (Home Depot = HD). Overrides the list while filled in.",
@@ -2975,7 +3018,7 @@ else:
 with st.sidebar:
     if mode_code in ("single", "compare"):   # these pages add their own controls above
         st.divider()
-    st.toggle("🌙 Dark mode", key="dark", help="Switch the page to dark colours.")
+    st.toggle("Dark mode", key="dark", help="Switch the page to dark colours.")
 
 st.divider()
 st.markdown('<div class="footer">Company filings from SEC EDGAR · prices and fund data from Yahoo Finance · '
