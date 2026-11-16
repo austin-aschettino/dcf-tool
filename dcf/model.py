@@ -221,10 +221,9 @@ def check_company(c: CompanyData, base: str = "avg3") -> Tuple[Optional[str], Li
     start = base_cash(c, base)
     if start <= 0:
         return (
-            f"{c.name}'s starting {label} is negative or zero ({start / 1e9:,.2f}B), meaning it currently "
-            "spends more cash than it brings in. A DCF values a company from the cash it produces, so it "
-            "can't give a meaningful number here. Companies like this are usually valued on future "
-            "expectations, such as sales growth or a path to profitability, rather than today's cash.",
+            f"{c.name}'s starting {label} is negative or zero ({'-' if start < 0 else ''}${abs(start) / 1e9:,.2f}B), meaning it currently "
+            "spends more cash than it brings in. A cash-flow model values a company from the cash it "
+            "produces, so it can't give a meaningful number until that turns positive.",
             warnings,
         )
 

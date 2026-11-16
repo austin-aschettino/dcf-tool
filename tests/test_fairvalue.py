@@ -10,7 +10,7 @@ import pytest
 from conftest import make_company
 from dcf import DCFAssumptions
 from dcf.fairvalue import (Method, fair_value_band, fair_value_methods, has_underlying, model_range,
-                           price_position, underlying_cash_flow)
+                           price_position, price_reading, underlying_cash_flow)
 
 
 def investing_company():
@@ -72,6 +72,24 @@ def test_price_position():
     assert price_position(90, band) == "below"
     assert price_position(120, band) == "within"
     assert price_position(150, band) == "above"
+
+
+def test_price_reading_grades_distance_and_counts_methods():
+    methods = [
+        Method("Model", 80, 100, 130, kind="model"),
+        Method("Peers", 90, 110, 160, kind="peers"),
+        Method("Analysts", 140, 150, 170, kind="analysts"),
+        Method("Traded", 100, 150, 200, kind="market", counts=False),   # context, never counted
+    ]
+    band = (100.0, 110.0, 150.0)
+    r = price_reading(153, methods, band)
+    assert r.position == "above" and round(r.gap, 3) == 0.02     # just above the top
+    assert (r.inside, r.below, r.above, r.total) == (2, 1, 0, 3)
+    assert r.width == "wide"                                     # 150 / 100 = 1.5
+    assert price_reading(120, methods, band).gap == 0.0
+    assert price_reading(50, methods, band).position == "below"
+    assert price_reading(120, methods, (100.0, 110.0, 120.0)).width == "narrow"
+    assert price_reading(120, methods, (50.0, 110.0, 200.0)).width == "very wide"
 
 
 def test_data_saved_before_a_field_existed_still_loads():

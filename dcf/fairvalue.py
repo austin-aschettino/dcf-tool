@@ -147,3 +147,36 @@ def price_position(price: float, band: Tuple[float, float, float]) -> str:
     if price > hi:
         return "above"
     return "within"
+
+
+@dataclass
+class PriceReading:
+    """How today's price relates to the fair-value range, in terms a headline can be honest about."""
+    position: str    # "below", "within" or "above" the range
+    gap: float       # how far outside the range, as a fraction of the nearest edge (0 when inside)
+    width: str       # "narrow", "wide" or "very wide": how much the methods disagree
+    inside: int      # methods whose low-to-high range includes today's price
+    below: int       # methods whose whole range is below today's price
+    above: int       # methods whose whole range is above today's price
+    total: int       # methods counted (the trading range is context, so it isn't one)
+
+
+def price_reading(price: float, methods: List[Method], band: Tuple[float, float, float]) -> PriceReading:
+    lo, _, hi = band
+    pos = price_position(price, band)
+    if pos == "above":
+        gap = price / hi - 1 if hi > 0 else 0.0
+    elif pos == "below":
+        gap = 1 - price / lo if lo > 0 else 0.0
+    else:
+        gap = 0.0
+    ratio = hi / lo if lo > 0 else math.inf
+    width = "narrow" if ratio < 1.35 else ("wide" if ratio < 2.5 else "very wide")
+    counted = [m for m in methods if m.counts and m.high > 0]
+    return PriceReading(
+        position=pos, gap=gap, width=width,
+        inside=sum(1 for m in counted if m.low <= price <= m.high),
+        below=sum(1 for m in counted if m.high < price),
+        above=sum(1 for m in counted if m.low > price),
+        total=len(counted),
+    )
