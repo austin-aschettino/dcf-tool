@@ -17,7 +17,8 @@ Everything is explained in plain English inside the app: every chart and table h
 
 | | |
 |---|---|
-| **Plain-English verdict** | "AutoZone looks roughly fairly priced: worth about $3,461, 6% above today's price." |
+| **Fair value by method** | A "football field" chart: the cash-flow model on reported and on underlying cash flow, prices implied by similar companies, analysts' targets and the last year's trading range, each as a bar, with today's price across them. |
+| **Plain-English verdict** | Where today's price sits against the range most methods agree on, e.g. *"AutoZone looks cheap on most measures: most methods put it between $3,666 and $4,492."* |
 | **What's priced in** | The growth rate the current price implies, e.g. *"Apple's free cash flow would need to grow about 14% a year for 10 years."* |
 | **Reverse DCF** | Works backwards from today's price: the growth and return the market is betting on, how demanding that is compared with the company's track record, the cash flow the price needs, and a grid of growth priced in for other required returns and time frames. |
 | **Scenarios** | Pessimistic / middle / optimistic estimates, each loadable into the sliders with one click. |
@@ -112,7 +113,8 @@ The model's "cheap" stocks did slightly better than its "expensive" ones: the ch
 4. **Discounting:** future cash is converted to today's money at the required return. That's the WACC for ordinary companies, or the cost of equity for banks, both estimated from the stock's beta with a 4.5% market risk premium.
 5. **Per share:** subtract net debt (not for banks), divide by shares, compare with the price.
 6. **Reverse DCF:** solve for the steady growth rate that would make the estimate equal today's price.
-7. **Known blind spots, flagged in the app:** heavy investment (capital spending above half of operating cash flow), a recent dip in cash flow, and very volatile stocks. In those cases the estimate is probably too low, and the app says so.
+7. **Several methods, not one number:** the overview shows each method's range side by side. *Underlying cash flow* is operating cash flow minus only the spending needed to maintain the business (estimated by depreciation), so heavy growth investment isn't counted as a pure cost. The headline compares the price with the range where most methods' central estimates fall; with four or more methods the highest and lowest are left out, so one distorted method can't drive the verdict.
+8. **Known blind spots, flagged in the app:** heavy investment (capital spending above half of operating cash flow), a recent dip in cash flow, and very volatile stocks. In those cases the estimate is probably too low, and the app says so.
 
 Index funds use the same idea on the fund's combined earnings (price ÷ P/E), the share paid to owners, and the fund's fee.
 
@@ -124,6 +126,7 @@ main.py             command-line report
 dcf/
   data.py           company financials (SEC EDGAR statements, Yahoo prices and ratios)
   quality.py        business quality scorecard and similar-company comparison
+  fairvalue.py      fair value by several methods (football field) and underlying cash flow
   montecarlo.py     probability view (thousands of valuations with varied assumptions)
   portfolio.py      portfolio valuation and sector mix
   fund.py           index-fund data and valuation

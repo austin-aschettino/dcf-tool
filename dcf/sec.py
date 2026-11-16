@@ -49,9 +49,12 @@ TAGS = {
     "short_borrowings": ["ShortTermBorrowings", "CommercialPaper"],
     "diluted_shares": ["WeightedAverageNumberOfDilutedSharesOutstanding"],
     "basic_shares": ["WeightedAverageNumberOfSharesOutstandingBasic"],
+    # Depreciation: a rough measure of the spending needed just to maintain the business.
+    "depreciation": ["DepreciationDepletionAndAmortization", "DepreciationAmortizationAndAccretionNet",
+                     "DepreciationAndAmortization", "Depreciation"],
 }
 DURATION_ITEMS = {"ocf", "capex", "revenue", "dividends", "buybacks", "interest", "tax", "pretax",
-                  "diluted_shares", "basic_shares"}
+                  "diluted_shares", "basic_shares", "depreciation"}
 MIN_PLAUSIBLE_SHARES = 1_000_000   # every company in the backtest has far more; smaller values are mis-scaled
 ANNUAL_FORMS = ("10-K", "10-K/A", "10-KT", "20-F", "40-F")
 
@@ -60,12 +63,15 @@ ANNUAL_FORMS = ("10-K", "10-K/A", "10-KT", "20-F", "40-F")
 # Downloading
 # --------------------------------------------------------------------------- #
 
+REQUEST_TIMEOUT = 60   # seconds; the live app lowers this so a slow SEC can't stall a page
+
+
 def _get_json(url: str) -> dict:
     wait = 0.12 - (time.time() - _last_call[0])  # SEC asks for no more than 10 requests a second
     if wait > 0:
         time.sleep(wait)
     _last_call[0] = time.time()
-    r = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=60)
+    r = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
     r.raise_for_status()
     return r.json()
 
@@ -279,6 +285,7 @@ def snapshot(facts: dict, asof: str, max_years: int = 4, financial: bool = False
         "free_cash_flow": [ocf.get(e, nan) - abs(capex.get(e, 0.0)) for e in ends],
         "dividends_paid": [abs(series["dividends"].get(e, 0.0)) for e in ends],
         "buybacks": [abs(series["buybacks"].get(e, 0.0)) for e in ends],
+        "depreciation": [series["depreciation"].get(e, nan) for e in ends],
         "shares": float(shares),
         "total_debt": pick(debt),
         "cash": pick(cash),

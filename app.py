@@ -59,6 +59,7 @@ from dcf.montecarlo import UNCERTAINTY, simulate_company, simulate_fund
 from dcf.portfolio import (EXAMPLE as EXAMPLE_PORTFOLIO, format_holdings, holding_row, parse_holdings,
                            portfolio_volatility, project_value, sector_mix, weighted)
 from dcf.quality import implied_prices, multiples, overall, peer_medians, peer_tickers, scorecard
+from dcf.fairvalue import fair_value_band, fair_value_methods, price_position
 
 st.set_page_config(page_title="Stock & Fund Valuation", page_icon="📈", layout="wide")
 
@@ -1609,6 +1610,98 @@ def render_portfolio() -> None:
         )
 
 
+# --------------------------------------------------------------------------- #
+# Fair value by method ("football field")
+# --------------------------------------------------------------------------- #
+
+KIND_COLOURS = {"model": BLUE, "peers": TEAL, "analysts": AMBER, "market": GREY}
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def peer_prices_for(ticker: str) -> dict:
+    """Share prices implied by similar companies' valuation multiples (empty if none can be loaded)."""
+    c = fetch(ticker)
+    peers = _load_many(peer_tickers(c))
+    return implied_prices(c, peer_medians(list(peers.values()))) if peers else {}
+
+
+def fair_value_verdict(name: str, price: float, band, tail: str, caveats) -> None:
+    """The headline: where today's price sits among the valuation methods, plus what it assumes."""
+    lo, mid, hi = band
+    pos = price_position(price, band)
+    color = {"below": "green", "within": "orange", "above": "red"}[pos]
+    head = {"below": f"{name} looks **cheap** on most measures",
+            "within": f"{name} is priced **within** its fair-value range",
+            "above": f"{name} looks **expensive** on most measures"}[pos]
+    with st.container(border=True, key=f"verdict_{color}"):
+        st.markdown(
+            esc(f"#### :{color}[{head}]\n"
+                f"Most valuation methods put it between **${lo:,.2f}** and **${hi:,.2f}** a share (middle "
+                f"**${mid:,.2f}**); today's price is **${price:,.2f}**. The chart below shows each method.\n\n{tail}"),
+            help="The range is where the valuation methods' central estimates fall. With four or more methods, "
+                 "the single highest and lowest are left out so one unusual result can't stretch it. "
+                 "Not a prediction of where the price will go.",
+        )
+        if caveats:
+            labels = " · ".join(label for label, _ in caveats)
+            with st.expander(f"⚠️ The cash-flow model is probably too low here ({labels}). Why?"):
+                st.markdown(esc("\n\n".join(f"**{label.capitalize()}.** {text}" for label, text in caveats)))
+        st.markdown('<p class="mobile-only">Tap » at the top left to change the assumptions.</p>',
+                    unsafe_allow_html=True)
+
+
+def football_field(methods, price: float, band, distorted: bool) -> None:
+    """Each method's range as a bar, the agreed range shaded, and today's price as a line."""
+    shown = [m for m in methods if m.high > 0]
+    if not shown:
+        return
+    labels = [("⚠️ " if distorted and m.name.startswith("Cash-flow model (free") else "") + m.name for m in shown]
+    labels, shown = labels[::-1], shown[::-1]           # first method at the top
+    fig = go.Figure()
+    if band:
+        fig.add_vrect(x0=band[0], x1=band[2], fillcolor="rgba(5,150,105,0.10)", line_width=0, layer="below",
+                      annotation_text="Most methods", annotation_position="top left",
+                      annotation_font=dict(color="#059669", size=12))
+    fig.add_bar(
+        x=[m.high - m.low for m in shown], base=[m.low for m in shown], y=labels, orientation="h",
+        marker=dict(color=[KIND_COLOURS[m.kind] for m in shown],
+                    opacity=[0.4 if (distorted and m.name.startswith("Cash-flow model (free")) or not m.counts
+                             else 0.9 for m in shown]),
+        text=[f"${m.low:,.0f} – ${m.high:,.0f}" for m in shown], textposition="outside", cliponaxis=False,
+        customdata=[[m.mid, m.note] for m in shown],
+        hovertemplate="%{y}<br>$%{base:,.0f} to $%{x:,.0f} wide<br>middle $%{customdata[0]:,.2f}<br>%{customdata[1]}<extra></extra>",
+        showlegend=False,
+    )
+    fig.add_scatter(x=[m.mid for m in shown], y=labels, mode="markers", name="Middle estimate",
+                    marker=dict(symbol="line-ns", size=22, line=dict(width=3, color="#0f172a")),
+                    hovertemplate="Middle: $%{x:,.2f}<extra></extra>")
+    fig.add_vline(x=price, line_dash="dash", line_color=RED, line_width=2,
+                  annotation_text=f"Today ${price:,.0f}", annotation_position="top")
+    top = max([m.high for m in shown] + [price]) * 1.18
+    chart_layout(fig, height=110 + 56 * len(shown), hovermode="closest", showlegend=False,
+                 xaxis=dict(tickprefix="$", tickformat=",.0f", range=[0, top]),
+                 yaxis=dict(automargin=False, ticksuffix="  "),
+                 margin=dict(l=int(7.0 * max(len(x) for x in labels)) + 24, r=40, t=30, b=10))
+    show(fig)
+    explain(
+        "**What this shows:** several different ways of answering *what is one share worth?*, side by side. "
+        "Each bar runs from that method's low to high estimate; the black tick is its middle. The **red dashed "
+        "line** is today's price and the **green band** is where most methods agree.\n\n"
+        "- **Cash-flow model (free cash flow):** this app's main model, using your sidebar settings. The bar runs "
+        "from the pessimistic to the optimistic scenario.\n"
+        "- **Cash-flow model (underlying cash flow):** the same model, but counting only the spending needed to "
+        "*maintain* the business (estimated from depreciation), not spending on growth. For companies investing "
+        "heavily, like Amazon or Microsoft, this is usually the fairer version.\n"
+        "- **Priced like similar companies:** what the share would cost at the P/E, EV/EBITDA and cash-flow "
+        "yield of similar large companies.\n"
+        "- **Analysts' 12-month targets:** Wall Street's lowest, average and highest price targets.\n"
+        "- **Traded over the last 12 months** (grey): where the price has actually been. Context, not a fair value.\n\n"
+        "**How to read it:** when the bars overlap around the price, the price looks reasonable. When the red line "
+        "sits to the right of most bars, the price is betting on more than these methods assume; to the left, "
+        "less. Methods disagreeing a lot is itself useful: it means the value is genuinely uncertain."
+    )
+
+
 def render_company(c, ticker: str) -> None:
     k = lambda name: f"{name}__{ticker}"  # widget keys, per ticker so defaults reset on change
     payout = c.is_financial
@@ -1655,6 +1748,11 @@ def render_company(c, ticker: str) -> None:
             st.markdown("#### :orange[No valuation for this company]")
             st.write(blocking)
         warnings_box(warnings)
+        with st.spinner("Comparing with similar companies… (a few seconds the first time)"):
+            other = fair_value_methods(c, d, peer_prices_for(ticker), fetch_history(ticker))
+        if any(m.counts for m in other):
+            st.markdown("#### Other ways to value it")
+            football_field(other, c.price, fair_value_band(other), distorted=False)
         t_outlook, t_data = st.tabs(["Price outlook", "Company"])
         with t_outlook:
             outlook_tab(c, d, ticker, "share")
@@ -1704,7 +1802,15 @@ def render_company(c, ticker: str) -> None:
 
     warnings_box(warnings)
     tail = priced_in_sentence(g_implied, growth, years, terminal, cash_name)
-    verdict_box(c.name, r.value_per_share, c.price, r.upside, "share", tail, caveats=model_caveats(c, a))
+    caveats = model_caveats(c, a)
+    with st.spinner("Comparing with similar companies… (a few seconds the first time)"):
+        peer_prices = peer_prices_for(ticker)
+    methods = fair_value_methods(c, a, peer_prices, fetch_history(ticker), distorted=bool(caveats))
+    band = fair_value_band(methods)
+    if band:
+        fair_value_verdict(c.name, c.price, band, tail, caveats)
+    else:
+        verdict_box(c.name, r.value_per_share, c.price, r.upside, "share", tail, caveats=caveats)
     download_button(company_tables(c, a, r, fetch_history(ticker)), ticker, actions)
 
     t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_data = st.tabs(
@@ -1712,20 +1818,30 @@ def render_company(c, ticker: str) -> None:
 
     # ---- Overview ----------------------------------------------------------
     with t_overview:
-        m1, m2, m3, m4 = kpi_row(4, "row3")
-        m1.metric("Estimated value / share", f"${r.value_per_share:,.2f}",
-                  help="What the model thinks one share is worth, based on the cash the company should produce.")
-        m2.metric("Current price", f"${c.price:,.2f}", help="What one share costs on the stock market right now.")
-        gap_d = r.value_per_share - c.price
-        m3.metric("Gap vs. price", f"{r.upside:+.1%}", delta=f"{'-' if gap_d < 0 else '+'}${abs(gap_d):,.2f} vs. price",
-                  help="How far the price would have to move to match the estimate. Negative = the price is above the estimate.")
+        m1, m2, m3, m4 = kpi_row(4, "compact_fair")
+        m1.metric("Current price", f"${c.price:,.2f}", help="What one share costs on the stock market right now.")
+        if band:
+            m2.metric("Fair-value range", f"{short_money(band[0])} – {short_money(band[2])}",
+                      help=f"Where most valuation methods put one share: ${band[0]:,.2f} to ${band[2]:,.2f}. "
+                           "See the chart below.")
+            gap_m = band[1] / c.price - 1
+            m3.metric("Middle of the methods", f"${band[1]:,.2f}", delta=f"{gap_m:+.1%} vs. price",
+                      help="The middle of the valuation methods' central estimates.")
+        else:
+            m2.metric("Cash-flow model", f"${r.value_per_share:,.2f}",
+                      help="What the cash-flow model thinks one share is worth with your sidebar settings.")
+            gap_d = r.value_per_share - c.price
+            m3.metric("Gap vs. price", f"{r.upside:+.1%}", delta=f"{'-' if gap_d < 0 else '+'}${abs(gap_d):,.2f} vs. price")
         m4.metric("Growth priced in", pct(g_implied),
                   delta=(f"{g_implied - growth:+.1%} vs. your setting" if pd.notna(g_implied) else None),
                   delta_color="inverse",
                   help=f"The steady yearly growth in {cash_name} over the next {years} years that would make the "
                        "estimate equal today's price. Higher than your setting = the market expects more than you do.")
 
-        st.markdown("#### Where the value comes from")
+        st.markdown("#### Fair value by method")
+        football_field(methods, c.price, band, distorted=bool(caveats))
+
+        st.markdown(f"#### How the cash-flow model gets to ${r.value_per_share:,.2f}")
         div, unit = scale_for([r.enterprise_value, r.equity_value])
         if payout:
             measure = ["relative", "relative", "total"]

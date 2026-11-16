@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from dataclasses import dataclass, field
 from datetime import date
 from typing import List, Optional
 
 import pandas as pd
+import requests
 import yfinance as yf
 
 # Industries where a free-cash-flow DCF doesn't work: for banks, insurers and
@@ -73,6 +75,7 @@ class CompanyData:
     free_cash_flow: List[float] = field(default_factory=list)
     dividends_paid: List[float] = field(default_factory=list)   # positive amounts
     buybacks: List[float] = field(default_factory=list)         # positive amounts
+    depreciation: List[float] = field(default_factory=list)     # depreciation & amortization, positive amounts
     sector: str = ""
     industry: str = ""
     analyst_growth: Optional[float] = None   # analysts' next-year earnings growth estimate
@@ -164,13 +167,26 @@ def _analyst_growth(t: yf.Ticker) -> Optional[float]:
     return None
 
 
+SEC_RETRY_AFTER = 600        # after a connection failure, skip the SEC for this many seconds
+_sec_down_until = [0.0]
+
+
 def _sec_statements(ticker: str, financial: bool) -> Optional[dict]:
-    """The last four annual reports from SEC EDGAR, or None if the SEC has nothing usable."""
+    """The last four annual reports from SEC EDGAR, or None if the SEC has nothing usable.
+
+    If the SEC can't be reached, it isn't tried again for 10 minutes, so pages fall straight back to
+    Yahoo instead of each waiting for a timeout.
+    """
+    if time.time() < _sec_down_until[0]:
+        return None
     try:
         from . import sec   # imported here so a problem with the SEC module never blocks Yahoo data
+        sec.REQUEST_TIMEOUT = 15
         facts, _ = sec.ticker_facts(ticker)
         return sec.snapshot(facts, date.today().isoformat(), max_years=4, financial=financial)
     except Exception as e:   # not an SEC filer (e.g. a foreign company), or EDGAR unreachable
+        if isinstance(e, (requests.ConnectionError, requests.Timeout)):
+            _sec_down_until[0] = time.time() + SEC_RETRY_AFTER
         logging.getLogger(__name__).info("SEC data unavailable for %s: %s", ticker, e)
         return None
 
@@ -210,6 +226,7 @@ def fetch_company(ticker: str, t: Optional[yf.Ticker] = None, info: Optional[dic
     revenue = _row(inc, "Total Revenue", "Operating Revenue")
     dividends = _row(cf, "Cash Dividends Paid", "Common Stock Dividend Paid")
     buybacks = _row(cf, "Repurchase Of Capital Stock", "Common Stock Payments")
+    depreciation = _row(cf, "Depreciation And Amortization", "Depreciation Amortization Depletion", "Depreciation")
 
     def align(s: Optional[pd.Series], default: float = float("nan")) -> List[float]:
         if s is None:
@@ -231,6 +248,7 @@ def fetch_company(ticker: str, t: Optional[yf.Ticker] = None, info: Optional[dic
         # Yahoo reports cash paid out as negative numbers; store them as positive amounts.
         dividends_paid=[abs(v) for v in align(dividends, 0.0)],
         buybacks=[abs(v) for v in align(buybacks, 0.0)],
+        depreciation=[abs(v) for v in align(depreciation)],
         tax_rate=tax_rate,
         interest_expense=abs(_latest(inc, "Interest Expense", "Interest Expense Non Operating")),
         shares=_latest(bs, "Ordinary Shares Number", "Share Issued"),
@@ -247,7 +265,8 @@ def _from_sec(s: dict) -> dict:
     return dict(
         years=s["years"], revenue=s["revenue"], operating_cash_flow=s["operating_cash_flow"],
         capex=s["capex"], free_cash_flow=s["free_cash_flow"], dividends_paid=s["dividends_paid"],
-        buybacks=s["buybacks"], tax_rate=min(max(tax_rate, 0.0), 0.40), interest_expense=s["interest_expense"],
+        buybacks=s["buybacks"], depreciation=s.get("depreciation", []),
+        tax_rate=min(max(tax_rate, 0.0), 0.40), interest_expense=s["interest_expense"],
         shares=s["shares"], total_debt=s["total_debt"], cash=s["cash"], source="SEC EDGAR",
     )
 
@@ -286,6 +305,7 @@ def _build(ticker: str, t: yf.Ticker, info: dict, st: dict) -> CompanyData:
         free_cash_flow=st["free_cash_flow"],
         dividends_paid=st["dividends_paid"],
         buybacks=st["buybacks"],
+        depreciation=st.get("depreciation") or [],
         sector=info.get("sector") or "",
         industry=info.get("industry") or "",
         analyst_growth=_analyst_growth(t),

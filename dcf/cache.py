@@ -20,7 +20,7 @@ T = TypeVar("T")
 
 CACHE_DIR = Path(os.environ.get("DCF_CACHE_DIR", Path(__file__).resolve().parent.parent / ".cache"))
 # Bump when the saved data classes change shape, so old files are ignored.
-CACHE_VERSION = 4
+CACHE_VERSION = 5
 DEFAULT_MAX_AGE_HOURS = 12.0
 
 
