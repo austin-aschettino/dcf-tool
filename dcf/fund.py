@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import yfinance as yf
 
+from .data import FillsMissingFields
 from .model import EQUITY_RISK_PREMIUM, RISK_FREE_RATE
 
 FUND_TYPES = {"ETF", "MUTUALFUND"}
@@ -45,7 +46,7 @@ def is_fund(info: dict) -> bool:
 
 
 @dataclass
-class FundData:
+class FundData(FillsMissingFields):
     ticker: str
     name: str
     fund_type: str                 # "ETF" or "MUTUALFUND"

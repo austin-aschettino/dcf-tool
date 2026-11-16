@@ -48,10 +48,11 @@ def underlying_cash_flow(c: CompanyData) -> List[float]:
     actual capital spending. Years without the figures are NaN.
     """
     out = []
+    deps = getattr(c, "depreciation", None) or []   # missing on data saved by older app versions
     for i in range(len(c.years)):
         ocf = c.operating_cash_flow[i] if i < len(c.operating_cash_flow) else float("nan")
         capex = abs(c.capex[i]) if i < len(c.capex) and _ok(c.capex[i]) else float("nan")
-        dep = c.depreciation[i] if i < len(c.depreciation or []) else float("nan")
+        dep = deps[i] if i < len(deps) else float("nan")
         if not (_ok(ocf) and _ok(capex) and _ok(dep)):
             out.append(float("nan"))
         else:

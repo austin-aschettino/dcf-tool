@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import math
 import time
-from dataclasses import dataclass, field
+from dataclasses import MISSING, dataclass, field, fields
 from datetime import date
 from typing import List, Optional
 
@@ -55,8 +55,25 @@ def is_financial_industry(sector: str, industry: str) -> bool:
     return (sector or "") == "Financial Services" and any(w in ind for w in FINANCIAL_INDUSTRY_WORDS)
 
 
+class FillsMissingFields:
+    """Lets data saved by an older version of the app load in a newer one.
+
+    Saved copies (on disk or in the app's memory cache) are restored without running __init__, so a
+    field added since they were saved would be missing and crash the page. This fills it with its default.
+    """
+
+    def __setstate__(self, state: dict) -> None:
+        for f in fields(self):
+            if f.name not in state:
+                if f.default_factory is not MISSING:
+                    state[f.name] = f.default_factory()
+                elif f.default is not MISSING:
+                    state[f.name] = f.default
+        self.__dict__.update(state)
+
+
 @dataclass
-class CompanyData:
+class CompanyData(FillsMissingFields):
     ticker: str
     name: str
     currency: str

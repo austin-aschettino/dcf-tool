@@ -72,3 +72,27 @@ def test_price_position():
     assert price_position(90, band) == "below"
     assert price_position(120, band) == "within"
     assert price_position(150, band) == "above"
+
+
+def test_data_saved_before_a_field_existed_still_loads():
+    """The live-app crash: company data cached before 'depreciation' existed, restored into newer code."""
+    import pickle
+    from types import SimpleNamespace
+
+    c = make_company()
+    del c.__dict__["depreciation"], c.__dict__["forward_pe"]   # what an older version saved
+    restored = pickle.loads(pickle.dumps(c))                     # how the cache brings it back
+    assert restored.depreciation == [] and restored.forward_pe is None
+    assert fair_value_methods(restored, DCFAssumptions(0.05, 0.02, 0.09))[0].kind == "model"   # no crash
+
+    # An object with no such attribute at all (an older class still in memory) is handled too.
+    bare = SimpleNamespace(**{k: v for k, v in c.__dict__.items()})
+    assert all(math.isnan(v) for v in underlying_cash_flow(bare))
+
+
+def test_fund_data_also_fills_missing_fields():
+    import pickle
+    from conftest import make_fund
+    f = make_fund()
+    del f.__dict__["holdings"]
+    assert pickle.loads(pickle.dumps(f)).holdings == []
