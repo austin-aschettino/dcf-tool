@@ -18,7 +18,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from dcf import (
+from freshness import refresh_package
+
+# After a push, Streamlit Cloud reruns this file in the same process; make sure the dcf package it imports
+# is the version on disk, not one left in memory by the previous deploy (that caused an ImportError).
+refresh_package("dcf")
+
+from dcf import (  # noqa: E402
     DCFAssumptions,
     FundData,
     IndexAssumptions,
