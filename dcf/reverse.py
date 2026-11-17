@@ -107,10 +107,10 @@ def demand_level(g: float, reference: float, what: str = "the company") -> Tuple
     """(headline, colour, explanation) for how demanding the growth priced in is.
 
     `reference` is the best evidence of what's realistic (e.g. past growth or analysts' forecast).
-    Colour is green / orange / red, matching the verdict cards.
+    Colour is green / neutral / red, matching the verdict cards (neutral = no colour).
     """
     if _nan(g):
-        return ("Can't work out what's priced in", "orange",
+        return ("Can't work out what's priced in", "neutral",
                 "No growth rate in a sensible range makes the estimate match today's price with these settings.")
     if _nan(reference):
         reference = LONG_RUN_EARNINGS_GROWTH
@@ -127,7 +127,7 @@ def demand_level(g: float, reference: float, what: str = "the company") -> Tuple
                 f"The price assumes {g:.1%} growth a year, above {ref_words}. It needs things to go better "
                 "than they have been.")
     if gap >= -0.02:
-        return ("Expectations in line with the record", "orange",
+        return ("Expectations in line with the record", "neutral",
                 f"The price assumes {g:.1%} growth a year, close to {ref_words}. The market is roughly "
                 "betting on more of the same.")
     return ("Modest expectations", "green",

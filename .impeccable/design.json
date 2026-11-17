@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-16T20:17:52+00:00",
+  "generatedAt": "2026-11-17T00:13:32+00:00",
   "title": "Design System: Stock & Fund Valuation",
   "extensions": {
     "colorMeta": {
@@ -364,6 +364,156 @@
           "#e8f1ec"
         ]
       },
+      "chip-ledger-edge": {
+        "role": "tertiary",
+        "displayName": "Ledger Chip Edge",
+        "canonical": "oklch(76.9% 0.039 161.2)",
+        "tonalRamp": [
+          "#040e08",
+          "#182820",
+          "#31453a",
+          "#4c6457",
+          "#6a8476",
+          "#8da598",
+          "#b5cabe",
+          "#e2f3ea"
+        ]
+      },
+      "chip-you-edge": {
+        "role": "secondary",
+        "displayName": "Blue Chip Edge",
+        "canonical": "oklch(82.4% 0.055 272.5)",
+        "tonalRamp": [
+          "#070a18",
+          "#1e2336",
+          "#383e57",
+          "#545c7b",
+          "#727c9d",
+          "#949dbc",
+          "#bbc3de",
+          "#e7eeff"
+        ]
+      },
+      "badge-strong-tint": {
+        "role": "tertiary",
+        "displayName": "Strong Badge Tint",
+        "canonical": "oklch(94.2% 0.020 154.9)",
+        "tonalRamp": [
+          "#080d09",
+          "#1f2621",
+          "#39423c",
+          "#566159",
+          "#758178",
+          "#97a29a",
+          "#bdc7c0",
+          "#e9f1eb"
+        ]
+      },
+      "badge-strong-edge": {
+        "role": "tertiary",
+        "displayName": "Strong Badge Edge",
+        "canonical": "oklch(85.3% 0.046 155.3)",
+        "tonalRamp": [
+          "#030e07",
+          "#17291d",
+          "#304637",
+          "#4b6553",
+          "#698572",
+          "#8ca694",
+          "#b5cbbb",
+          "#e2f4e7"
+        ]
+      },
+      "badge-ok-tint": {
+        "role": "tertiary",
+        "displayName": "OK Badge Tint",
+        "canonical": "oklch(94.8% 0.028 86.6)",
+        "tonalRamp": [
+          "#0e0b05",
+          "#282419",
+          "#453f32",
+          "#645d4d",
+          "#847d6b",
+          "#a59e8e",
+          "#cac4b6",
+          "#f3eee3"
+        ]
+      },
+      "badge-ok-ink": {
+        "role": "tertiary",
+        "displayName": "OK Badge Ink",
+        "canonical": "oklch(46.4% 0.099 73.2)",
+        "tonalRamp": [
+          "#180600",
+          "#371d00",
+          "#593800",
+          "#7c5417",
+          "#9f7438",
+          "#be9763",
+          "#e0be92",
+          "#ffeac6"
+        ]
+      },
+      "badge-ok-edge": {
+        "role": "tertiary",
+        "displayName": "OK Badge Edge",
+        "canonical": "oklch(85.9% 0.067 88.0)",
+        "tonalRamp": [
+          "#120a00",
+          "#2d2206",
+          "#4c3e1c",
+          "#6c5c33",
+          "#8d7b50",
+          "#ad9d77",
+          "#d1c3a2",
+          "#f9eed3"
+        ]
+      },
+      "badge-weak-tint": {
+        "role": "tertiary",
+        "displayName": "Weak Badge Tint",
+        "canonical": "oklch(93.2% 0.023 24.1)",
+        "tonalRamp": [
+          "#100908",
+          "#2b2120",
+          "#493c3b",
+          "#695958",
+          "#8a7877",
+          "#aa9a98",
+          "#cfc0bf",
+          "#f7ebea"
+        ]
+      },
+      "badge-weak-ink": {
+        "role": "tertiary",
+        "displayName": "Weak Badge Ink",
+        "canonical": "oklch(46.7% 0.164 29.1)",
+        "tonalRamp": [
+          "#270000",
+          "#4d0000",
+          "#76150f",
+          "#a23025",
+          "#ca5043",
+          "#e77a6b",
+          "#ffa798",
+          "#ffd8cb"
+        ]
+      },
+      "badge-weak-edge": {
+        "role": "tertiary",
+        "displayName": "Weak Badge Edge",
+        "canonical": "oklch(83.8% 0.054 25.5)",
+        "tonalRamp": [
+          "#160605",
+          "#341d1b",
+          "#543734",
+          "#77534f",
+          "#9a726e",
+          "#b99490",
+          "#dcbbb8",
+          "#ffe7e4"
+        ]
+      },
       "night-ground": {
         "role": "neutral",
         "displayName": "Night Ground",
@@ -437,6 +587,21 @@
           "#a1a7a2",
           "#c6cbc7",
           "#ecf0ed"
+        ]
+      },
+      "night-heading": {
+        "role": "neutral",
+        "displayName": "Night Heading",
+        "canonical": "oklch(97.5% 0.006 153.8)",
+        "tonalRamp": [
+          "#0a0c0a",
+          "#232523",
+          "#3e403f",
+          "#5b5e5c",
+          "#7b7e7c",
+          "#9c9f9d",
+          "#c2c5c3",
+          "#edefed"
         ]
       },
       "night-muted": {
@@ -588,20 +753,118 @@
           "#c3cbc7",
           "#ebf0ed"
         ]
+      },
+      "night-up-ink": {
+        "role": "tertiary",
+        "displayName": "Night Up Ink",
+        "canonical": "oklch(84.2% 0.105 157.2)",
+        "tonalRamp": [
+          "#001203",
+          "#002e15",
+          "#064d2d",
+          "#226e47",
+          "#438f65",
+          "#6eaf89",
+          "#9cd3b1",
+          "#cffbdf"
+        ]
+      },
+      "night-up-tint": {
+        "role": "tertiary",
+        "displayName": "Night Up Tint",
+        "canonical": "rgba(110,214,150,.14)",
+        "tonalRamp": [
+          "#001300",
+          "#00300d",
+          "#004f24",
+          "#00713d",
+          "#2b935a",
+          "#60b37f",
+          "#92d7a9",
+          "#c7fed8"
+        ]
+      },
+      "night-up-edge": {
+        "role": "tertiary",
+        "displayName": "Night Up Edge",
+        "canonical": "rgba(110,214,150,.3)",
+        "tonalRamp": [
+          "#001300",
+          "#00300d",
+          "#004f24",
+          "#00713d",
+          "#2b935a",
+          "#60b37f",
+          "#92d7a9",
+          "#c7fed8"
+        ]
+      },
+      "night-down-ink": {
+        "role": "tertiary",
+        "displayName": "Night Down Ink",
+        "canonical": "oklch(83.8% 0.089 26.8)",
+        "tonalRamp": [
+          "#1c0202",
+          "#3d1613",
+          "#602f2b",
+          "#864a44",
+          "#aa6962",
+          "#c98d86",
+          "#eab5ae",
+          "#ffe2dd"
+        ]
+      },
+      "night-down-tint": {
+        "role": "tertiary",
+        "displayName": "Night Down Tint",
+        "canonical": "rgba(255,120,105,.14)",
+        "tonalRamp": [
+          "#270000",
+          "#4e0000",
+          "#77130f",
+          "#a32e26",
+          "#cb4f43",
+          "#e8796c",
+          "#ffa699",
+          "#ffd7cb"
+        ]
+      },
+      "night-down-edge": {
+        "role": "tertiary",
+        "displayName": "Night Down Edge",
+        "canonical": "rgba(255,120,105,.3)",
+        "tonalRamp": [
+          "#270000",
+          "#4e0000",
+          "#77130f",
+          "#a32e26",
+          "#cb4f43",
+          "#e8796c",
+          "#ffa699",
+          "#ffd7cb"
+        ]
       }
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "The Home statement only; 1.8rem on phones."
+        "purpose": "The Home statement only; display-phone below 640px."
+      },
+      "display-phone": {
+        "displayName": "Display (phone)",
+        "purpose": "The Home statement below 640px."
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "Company or page title; 1.55rem on phones."
+        "purpose": "Company or page title; headline-phone below 640px."
+      },
+      "headline-phone": {
+        "displayName": "Headline (phone)",
+        "purpose": "Company or page title below 640px."
       },
       "title-verdict": {
         "displayName": "Verdict title",
-        "purpose": "The plain-words verdict heading; its ink carries the result."
+        "purpose": "The plain-words verdict heading; only its ink carries the result, under the Fifteen Percent Rule."
       },
       "title": {
         "displayName": "Title",
@@ -609,11 +872,23 @@
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Explanations; 64ch in the verdict, pretty wrap. Tables use the same stack (sans words, serif digits) and scroll sideways."
+        "purpose": "Explanations; 64ch in the verdict, captions capped at 72ch, pretty wrap. Tables use the same stack (sans words, serif digits) and scroll sideways."
+      },
+      "nav": {
+        "displayName": "Nav",
+        "purpose": "Sidebar menu items on the bookcloth."
+      },
+      "body-line": {
+        "displayName": "Body line",
+        "purpose": "The words of a footing line and the today's-price row."
       },
       "body-small": {
         "displayName": "Small",
-        "purpose": "Chips, metric labels, tabs, crumbs, expander headings."
+        "purpose": "Tab labels, crumbs, expander headings, quality-card names."
+      },
+      "small-label": {
+        "displayName": "Small label",
+        "purpose": "Chips, metric labels, the sidebar brand tagline."
       },
       "label": {
         "displayName": "Label",
@@ -621,11 +896,23 @@
       },
       "figure-total": {
         "displayName": "Figure total",
-        "purpose": "The double-ruled footed answer; 1.75rem on phones."
+        "purpose": "The double-ruled footed answer; figure-total-phone below 640px."
+      },
+      "figure-total-phone": {
+        "displayName": "Figure total (phone)",
+        "purpose": "The footed answer below 640px."
       },
       "figure-metric": {
         "displayName": "Figure metric",
-        "purpose": "Values in figure rows; 1.5rem compact, 1.35rem under 440px."
+        "purpose": "Values in figure rows."
+      },
+      "figure-compact": {
+        "displayName": "Figure compact",
+        "purpose": "Compact figure rows (scenario cards, fair-value row); Home step numerals at 700."
+      },
+      "figure-small": {
+        "displayName": "Figure small",
+        "purpose": "Figure rows narrower than 440px; quality-card values at 700."
       },
       "figure-line": {
         "displayName": "Figure line",
@@ -665,6 +952,26 @@
         "name": "caption-opacity",
         "value": "[data-testid=\"stCaptionContainer\"] { opacity: 1 !important }",
         "purpose": "Undo Streamlit's 60% caption fade; caption colours pass contrast on their own."
+      },
+      {
+        "name": "disabled-button",
+        "value": "opacity: 1; background: transparent; color: var(--muted); border-style: dashed; cursor: default",
+        "purpose": "Reads as 'this one is current', not as a faded control."
+      },
+      {
+        "name": "pad-note",
+        "value": "border-top/bottom: 1px solid var(--rule); padding: 8px 0 8px 22px; ::before 8px circle in var(--amber) at left 4px, top 14px",
+        "purpose": "Notes about how far to trust the numbers; never a tinted banner."
+      },
+      {
+        "name": "tabs-fixed",
+        "value": "[data-baseweb=tab] { flex: 0 0 auto } p { white-space: nowrap }; tab-list { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin }",
+        "purpose": "Tabs never shrink or wrap; the row scrolls."
+      },
+      {
+        "name": "caption-measure",
+        "value": "main-column captions max-width: 72ch",
+        "purpose": "Keep captions to a readable measure."
       }
     ],
     "chart": {
@@ -684,9 +991,8 @@
       },
       "demandLevels": {
         "green": "cheap-green",
-        "orange": "amber-ink",
-        "red": "red-ink",
-        "grey": "market-grey"
+        "neutral": "ink in the verdict; market-grey on the portfolio chart",
+        "red": "red-ink"
       },
       "portfolioPalette": [
         "#1e4636",
@@ -708,7 +1014,7 @@
           "#8fd1ad"
         ]
       },
-      "agreementBand": "ledger green wash, rgba(30,70,54,.08) light / rgba(143,209,173,.14) dark",
+      "agreementBand": "ledger green wash, rgba(30,70,54,.08) light / rgba(143,209,173,.14) dark; label in muted ink on the paper colour: 'Most methods agree here' only when narrow (top < 1.35 x bottom), otherwise 'Where the middle estimates fall'",
       "priceLine": "dash, 2px, ink",
       "focus": "click a bar to select it; unselected bars drop to 0.22 opacity; double-click resets",
       "hoverNotes": "method notes wrapped at 30 characters",
@@ -723,7 +1029,10 @@
           "#9db0ff",
           "#dbe3ff"
         ]
-      }
+      },
+      "fairBand": "15%: within it a verdict is plain ink; above, red-ink; below, cheap-green. Shared by the price verdict and demand_level.",
+      "yardstick": "market-grey bar with a paper-coloured '/' hatch (size 6, solidity 0.35): an average of the others",
+      "priceHistory": "Outlook tab: price in market-grey 2px; middle estimate dashed blue 3px; Pessimistic / Optimistic dotted 1.5px in the scenario hue over a 10% blue wash, each labelled at its right end in muted ink on the paper colour"
     },
     "motion": [
       {
@@ -756,17 +1065,17 @@
       "name": "Footing",
       "kind": "custom",
       "refersTo": "footing-total",
-      "description": "The signature: a computation added up as a column, ending on a double-ruled per-share answer with today's price beneath. Used for every computed answer, on the stock page and the fund page.",
-      "html": "<table class=\"ds-footing\"><caption>How the cash-flow model gets there</caption><tr><td><span class=\"ds-op\"></span>Cash, next 10 years</td><td class=\"ds-v\">$1.35T</td></tr><tr><td><span class=\"ds-op\">+</span>Cash, all years after</td><td class=\"ds-v\">$1.79T</td></tr><tr class=\"ds-sub\"><td><span class=\"ds-op\">=</span>Whole business</td><td class=\"ds-v\">$3.15T</td></tr><tr><td><span class=\"ds-op\">−</span>Debt, net of cash</td><td class=\"ds-v ds-neg\">($0.04T)</td></tr><tr class=\"ds-sub\"><td><span class=\"ds-op\">=</span>For shareholders</td><td class=\"ds-v\">$3.11T</td></tr><tr><td><span class=\"ds-op\">÷</span>Shares</td><td class=\"ds-v\">14.53 billion</td></tr><tr class=\"ds-total\"><td>Value per share today</td><td class=\"ds-v\"><span>$213.92</span></td></tr><tr class=\"ds-price\"><td>Today's price</td><td class=\"ds-v\">$354.05</td></tr></table>",
+      "description": "The signature: a computation added up as a column, each line in its own unit, ending on a double-ruled per-share answer with today's price beneath. Used for every computed answer, on the stock page and the fund page.",
+      "html": "<table class=\"ds-footing\"><caption>How the cash-flow model gets there</caption><tr><td><span class=\"ds-op\"></span>Cash, next 10 years</td><td class=\"ds-v\">$1.35T</td></tr><tr><td><span class=\"ds-op\">+</span>Cash, all years after</td><td class=\"ds-v\">$1.79T</td></tr><tr class=\"ds-sub\"><td><span class=\"ds-op\">=</span>Whole business</td><td class=\"ds-v\">$3.15T</td></tr><tr><td><span class=\"ds-op\">−</span>Debt, net of cash</td><td class=\"ds-v ds-neg\">($37.76B)</td></tr><tr class=\"ds-sub\"><td><span class=\"ds-op\">=</span>For shareholders</td><td class=\"ds-v\">$3.11T</td></tr><tr><td><span class=\"ds-op\">÷</span>Shares</td><td class=\"ds-v\">14.53 billion</td></tr><tr class=\"ds-total\"><td>Value per share today</td><td class=\"ds-v\"><span>$213.92</span></td></tr><tr class=\"ds-price\"><td>Today's price</td><td class=\"ds-v\">$354.05</td></tr></table>",
       "css": ".ds-footing { width: 100%; max-width: 380px; border-collapse: collapse; background: #fbfdfa; font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif; } .ds-footing caption { text-align: left; font-size: .75rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #4f6057; padding: 0 0 8px 0; } .ds-footing td { padding: 7px 0; border-bottom: 1px solid #dbe6dd; font-size: .9375rem; color: #2b3a32; vertical-align: baseline; } .ds-footing td.ds-v { text-align: right; font-size: 1.0625rem; color: #16201b; white-space: nowrap; padding-left: 16px; padding-right: .36em; font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif; font-variant-numeric: tabular-nums lining-nums; } .ds-footing td.ds-neg { color: #b4261d; padding-right: 0; } .ds-footing tr.ds-sub td { font-weight: 600; color: #16201b; } .ds-footing tr.ds-total td { border-bottom: none; padding-top: 12px; font-weight: 700; color: #16201b; } .ds-footing tr.ds-total td.ds-v { font-size: 2.1rem; line-height: 1.1; } .ds-footing tr.ds-total td.ds-v span { border-bottom: 4px double #16201b; padding-bottom: 1px; } .ds-footing tr.ds-price td { border-bottom: none; padding-top: 10px; } .ds-footing tr.ds-price td.ds-v { font-size: 1.25rem; } .ds-op { color: #4f6057; display: inline-block; width: 1.1em; }"
     },
     {
       "name": "Button",
       "kind": "button",
       "refersTo": "button",
-      "description": "Bordered control on the pad; 6px corners, 600 label.",
-      "html": "<button class=\"ds-btn\">Excel report</button>",
-      "css": ".ds-btn { font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif; background: #fbfdfa; color: #16201b; border: 1px solid #c9d8cd; border-radius: 6px; padding: 8px 16px; font-weight: 600; font-size: 1rem; cursor: pointer; } .ds-btn:hover { border-color: #1e4636; color: #1e4636; } .ds-btn:focus-visible { outline: 2px solid #2747b8; outline-offset: 2px; } .ds-btn:disabled { opacity: .55; cursor: default; }"
+      "description": "Bordered control on the pad; 6px corners, 600 label. Disabled reads as 'current': full opacity, muted ink, dashed border.",
+      "html": "<button class=\"ds-btn\">Use optimistic settings</button> <button class=\"ds-btn\" disabled>Your current settings</button>",
+      "css": ".ds-btn { font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif; background: #fbfdfa; color: #16201b; border: 1px solid #c9d8cd; border-radius: 6px; padding: 8px 16px; font-weight: 600; font-size: 1rem; cursor: pointer; } .ds-btn:hover { border-color: #1e4636; color: #1e4636; } .ds-btn:focus-visible { outline: 2px solid #2747b8; outline-offset: 2px; } .ds-btn:disabled { opacity: 1; cursor: default; background: transparent; color: #4f6057; border-style: dashed; } .ds-btn:disabled:hover { border-color: #c9d8cd; color: #4f6057; }"
     },
     {
       "name": "Sidebar Menu",
@@ -780,9 +1089,9 @@
       "name": "Tabs",
       "kind": "nav",
       "refersTo": "tab-active",
-      "description": "One ruled line of tabs; the selected tab is underlined in ledger green.",
-      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button role=\"tab\" aria-selected=\"true\">Overview</button><button role=\"tab\">What's priced in</button><button role=\"tab\">Scenarios</button></div>",
-      "css": ".ds-tabs { font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif; display: flex; gap: 4px; border-bottom: 1px solid #c9d8cd; } .ds-tabs button { font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif; background: transparent; border: none; border-bottom: 3px solid transparent; margin-bottom: -1px; padding: 10px 14px; font-weight: 600; font-size: .9rem; color: #4f6057; cursor: pointer; } .ds-tabs button:hover { color: #16201b; } .ds-tabs button[aria-selected=\"true\"] { border-bottom-color: #1e4636; color: #1e4636; } .ds-tabs button:focus-visible { outline: 2px solid #2747b8; outline-offset: 2px; }"
+      "description": "One ruled line of tabs that never shrink; the row scrolls; the selected tab is underlined in ledger green.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button role=\"tab\" aria-selected=\"true\">Overview</button><button role=\"tab\">Priced in</button><button role=\"tab\">Outlook</button><button role=\"tab\">Forecast</button><button role=\"tab\">Scenarios</button><button role=\"tab\">Company</button></div>",
+      "css": ".ds-tabs { font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif; display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; gap: 4px; border-bottom: 1px solid #c9d8cd; } .ds-tabs button { font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif; background: transparent; border: none; border-bottom: 3px solid transparent; margin-bottom: -1px; flex: 0 0 auto; white-space: nowrap; padding: 10px 14px; font-weight: 600; font-size: .9rem; color: #4f6057; cursor: pointer; } .ds-tabs button:hover { color: #16201b; } .ds-tabs button[aria-selected=\"true\"] { border-bottom-color: #1e4636; color: #1e4636; } .ds-tabs button:focus-visible { outline: 2px solid #2747b8; outline-offset: 2px; }"
     },
     {
       "name": "Chips",
@@ -812,9 +1121,17 @@
       "name": "Verdict Sheet",
       "kind": "card",
       "refersTo": "sheet",
-      "description": "Plain sheet; only the headline ink carries the result.",
-      "html": "<div class=\"ds-verdict\"><h3 class=\"ds-red\">Apple Inc. is priced well above a wide fair-value range</h3><p>The methods' middle estimates run from <b>$96.11</b> to <b>$345.63</b> a share. That's faster than the <span class=\"ds-you\">12.2%</span> you're assuming.</p><small>Not a prediction of where the price will go.</small></div>",
+      "description": "Plain sheet; only the h3 headline ink carries the result: plain ink within 15% of the methods' middle estimate, red well above, green well below.",
+      "html": "<div class=\"ds-verdict\"><h3 class=\"ds-red\">Apple Inc. is priced well above the middle of its fair-value estimates</h3><p>Today's price, <b>$354.05</b>, is 58% above the middle of the valuation methods' estimates (<b>$224.10</b> a share). They run from <b>$96.11</b> to <b>$345.63</b>: that's a very wide range, so treat any one number loosely.</p><p>That's faster than the <span class=\"ds-you\">12.2%</span> you're assuming.</p><small>Not a prediction of where the price will go.</small></div>",
       "css": ".ds-verdict { font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif; background: #fbfdfa; border: 1px solid #c9d8cd; border-radius: 8px; padding: 16px; max-width: 440px; color: #16201b; } .ds-verdict h3 { margin: 0 0 8px; font-size: 1.45rem; line-height: 1.25; font-weight: 700; letter-spacing: -.01em; text-wrap: balance; } .ds-verdict h3.ds-red { color: #b4261d; } .ds-verdict p { margin: 0 0 12px; line-height: 1.6; max-width: 64ch; } .ds-verdict b { font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif; font-variant-numeric: tabular-nums lining-nums; } .ds-verdict small { color: #4f6057; font-size: .875rem; } .ds-you { color: #2747b8; font-weight: 700; font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif; font-variant-numeric: tabular-nums lining-nums; }"
+    },
+    {
+      "name": "Pad Note",
+      "kind": "custom",
+      "refersTo": "pad-note",
+      "description": "A note about how far to trust the numbers: a ruled line with a small amber dot, never a tinted banner.",
+      "html": "<p class=\"ds-pad-note\">Free cash flow was unusually low last year, so the cash-flow model is probably too low here.</p>",
+      "css": ".ds-pad-note { font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif; position: relative; max-width: 520px; border-top: 1px solid #c9d8cd; border-bottom: 1px solid #c9d8cd; padding: 8px 0 8px 22px; margin: 4px 0 10px; color: #2b3a32; font-size: .9rem; line-height: 1.5; } .ds-pad-note::before { content: ''; position: absolute; left: 4px; top: 14px; width: 8px; height: 8px; border-radius: 50%; background: #8a5a00; }"
     },
     {
       "name": "Quality Badges",
@@ -823,16 +1140,25 @@
       "description": "Scorecard grades as quiet 4px tags.",
       "html": "<span class=\"ds-badge ds-strong\">Strong</span> <span class=\"ds-badge ds-ok\">OK</span> <span class=\"ds-badge ds-weak\">Weak</span>",
       "css": ".ds-badge { font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif; border-radius: 4px; padding: 1px 8px; font-size: .75rem; font-weight: 700; border: 1px solid transparent; } .ds-strong { background: #e2f0e6; color: #1f6b43; border-color: #b8d8c2; } .ds-ok { background: #f6edd9; color: #7a4f00; border-color: #e3cf9f; } .ds-weak { background: #f8e3e1; color: #a2231a; border-color: #ebbdb8; }"
+    },
+    {
+      "name": "Data Table",
+      "kind": "card",
+      "refersTo": "sheet",
+      "description": "Read-only HTML table on a sheet: figure face, muted headers, negatives in red accounting brackets.",
+      "html": "<table class=\"ds-table\"><tr><th></th><th>2023</th><th>2024</th></tr><tr><td>Free cash flow</td><td>$99.58B</td><td>$108.81B</td></tr><tr><td>Spent on equipment (capex)</td><td class=\"ds-neg\">($10.96B)</td><td class=\"ds-neg\">($9.45B)</td></tr></table>",
+      "css": ".ds-table { font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif; border-collapse: collapse; background: #fbfdfa; border: 1px solid #c9d8cd; border-radius: 8px; } .ds-table th { color: #4f6057; font-weight: 600; text-align: right; padding: 6px 12px; border-bottom: 1px solid #c9d8cd; } .ds-table td { padding: 6px 12px; border-bottom: 1px solid #dbe6dd; color: #16201b; } .ds-table td + td { text-align: right; font-family: 'Source Serif 4', Georgia, serif; font-variant-numeric: tabular-nums lining-nums; } .ds-table td.ds-neg { color: #b4261d; }"
     }
   ],
   "narrative": {
     "northStar": "The Columnar Pad",
-    "overview": "**Creative North Star: \"The Columnar Pad\"**\n\nThe app is an accountant's green analysis pad. A valuation is arithmetic that foots, so every page shows its working down to a double-ruled answer: lines of figures right-aligned to one shared column, an operator in the margin, a subtotal in heavier ink, and a total underlined twice with today's price written beneath it. The pad is bound in ledger-green bookcloth (the sidebar), its pages are pale green stock, and the ink is near-black, with red ink for negatives and one blue ink set aside for the visitor's own assumptions.\n\nDensity is a working sheet's, not a brochure's: flat sheets with hairline rules, no shadows, no tinted gradient cards, no star scores, no brand-indigo everywhere. Words are set in Public Sans; every numeral, at every size and inside running sentences, is set in Source Serif 4 with tabular lining figures, so a number always looks like a number and columns never shift when a slider moves. The verdict is written in plain words first and coloured only in its headline ink; the arithmetic sits beside it as a footing, on the stock page and the fund page alike; the methods chart follows.\n\nDark mode is the same pad at night: a deep green-black ground, the same hairlines lifted, the inks brightened to hold contrast. Nothing changes structurally between themes.",
+    "overview": "**Creative North Star: \"The Columnar Pad\"**\n\nThe app is an accountant's green analysis pad. A valuation is arithmetic that foots, so every page shows its working down to a double-ruled answer: lines of figures right-aligned to one shared column, an operator in the margin, a subtotal in heavier ink, and a total underlined twice with today's price written beneath it. The pad is bound in ledger-green bookcloth (the sidebar), its pages are pale green stock, and the ink is near-black, with red ink for negatives and one blue ink set aside for the visitor's own assumptions.\n\nDensity is a working sheet's, not a brochure's: flat sheets with hairline rules, no shadows, no tinted gradient cards or banners, no star scores, no brand-indigo everywhere. Words are set in Public Sans; every numeral, at every size and inside running sentences, is set in Source Serif 4 with tabular lining figures, so a number always looks like a number and columns never shift when a slider moves. The verdict is written in plain words first, anchored on one figure and coloured only in its headline ink, and only when the price is well away from that figure; the arithmetic sits beside it as a footing, on the stock page and the fund page alike; the methods chart follows on the Overview tab.\n\nDark mode is the same pad at night: a deep green-black ground, the same hairlines lifted, the inks brightened to hold contrast. Nothing changes structurally between themes.",
     "keyCharacteristics": [
       "Ledger-green bookcloth sidebar on a pale green pad ground.",
       "One serif figure face (Source Serif 4, tabular lining) for every number, layered in front of Public Sans.",
       "Blue ink reserved for the visitor's own assumptions and what is computed from them; what the market prices in is written in ledger green.",
-      "Red ink and accounting parentheses for negatives.",
+      "Red ink and accounting parentheses for negatives, in footings and data tables alike.",
+      "One verdict colour rule everywhere: plain ink within 15% of the estimate, red well above, green well below.",
       "Flat sheets, 1px hairline rules, 4/6/8px corners, no shadows.",
       "The footing (a column of figures ending on a double-ruled total) as the signature for computed answers."
     ],
@@ -848,18 +1174,23 @@
         "section": "colors"
       },
       {
+        "name": "The Fifteen Percent Rule",
+        "body": "Every verdict on the site, the price against the estimate and the growth priced in against its yardstick alike, uses one rule: within 15% of the estimate it is plain ink with no colour; well above, red ink; well below, cheap green. \"In line\" and \"can't work out\" are neutral, never amber.",
+        "section": "colors"
+      },
+      {
         "name": "The Bookcloth Rule",
-        "body": "Ledger green binds and navigates (sidebar, active tab, crumbs, expander headings). It does not carry a verdict; verdicts, and the demand levels that echo them, use cheap-green, red-ink and amber-ink.",
+        "body": "Ledger green binds and navigates (sidebar, active tab, crumbs, expander headings). It does not carry a verdict; verdicts, and the demand levels that echo them, use cheap-green and red-ink, or plain ink.",
         "section": "colors"
       },
       {
         "name": "The Source Ink Rule",
-        "body": "On a chart, a colour names whose number it is: blue for the visitor, ledger green for the market's price, amber for analysts, grey for the past and for context, ink for reference lines. Amber never marks today's price.",
+        "body": "On a chart, a colour names whose number it is: blue for the visitor, ledger green for the market's price, amber for analysts, grey for the past, yardsticks and context, ink for reference lines. Amber never marks today's price.",
         "section": "colors"
       },
       {
         "name": "The One Figure Face Rule",
-        "body": "Every numeral, from the largest total to a digit inside a sentence or a chart tick, is Source Serif 4 with tabular lining figures. Never let a number fall back to the sans.",
+        "body": "Every numeral, from the largest total to a digit inside a sentence, a table cell or a chart tick, is Source Serif 4 with tabular lining figures. Never let a number fall back to the sans.",
         "section": "typography"
       },
       {
@@ -875,19 +1206,23 @@
     ],
     "dos": [
       "**Do** set every numeral in Source Serif 4 with tabular lining figures, through Pad Figures in front of Public Sans.",
-      "**Do** end every computed answer on a footing: right-aligned figures, operators in the margin, a 4px double-ruled total, today's price beneath.",
+      "**Do** end every computed answer on a footing: right-aligned figures each in its own unit, operators in the margin, a 4px double-ruled total, today's price beneath.",
       "**Do** write the visitor's own assumptions, and what is computed from them, in the reserved blue ink (#2747b8 on the pad, #b8c6ff on the cloth, #9db0ff at night), and what the market prices in in ledger green.",
-      "**Do** write negatives in red ink inside parentheses with the closing bracket hanging outside the column.",
+      "**Do** write negatives in red ink inside parentheses, in footings and tables alike, with the closing bracket hanging outside the column in a footing.",
       "**Do** separate with 1px rules and hairlines on flat sheets with 4 / 6 / 8px corners.",
-      "**Do** colour only the verdict's headline ink, and leave it plain ink when the price is inside the range or within 10% of an edge."
+      "**Do** colour only the verdict's h3 headline ink, and leave it plain ink when the price is within 15% of the estimate.",
+      "**Do** write a difference between two rates in \"pts\".",
+      "**Do** write notes about trusting the numbers as a pad note: a ruled line with a small amber dot."
     ],
     "donts": [
-      "**Don't** use shadows, gradient cards, tinted panel backgrounds or star scores.",
+      "**Don't** use shadows, gradient cards, tinted panel backgrounds, tinted banners or star scores.",
       "**Don't** use blue for anything that is not the visitor's own layer: not brand accents, not market data, not decoration.",
       "**Don't** use ledger green to signal a judgement; it is the binding, not a verdict.",
+      "**Don't** colour a verdict amber for \"in line\" or \"can't work out\"; those are plain ink.",
       "**Don't** set a number in the sans, or in proportional figures.",
-      "**Don't** fade captions with opacity (Streamlit's 60% caption fade is overridden to full opacity); give them a colour that passes contrast on its own ground.",
-      "**Don't** use amber for anything but analysts, or chart source colours for demand levels."
+      "**Don't** fade captions or disabled buttons with opacity (Streamlit's 60% caption fade is overridden to full opacity); give them a colour that passes contrast on its own ground.",
+      "**Don't** let tabs shrink or wrap; let the row scroll.",
+      "**Don't** use amber for anything but analysts, the pad-note dot and the cannot-value caution, or blue, peer green or analyst amber for demand levels."
     ]
   }
 }

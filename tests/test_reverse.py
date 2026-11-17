@@ -89,8 +89,8 @@ def test_benchmarks_and_yardstick():
 
 def test_demand_levels():
     assert demand_level(0.03, 0.10)[1] == "green"
-    assert demand_level(0.10, 0.10)[1] == "orange"
+    assert demand_level(0.10, 0.10)[1] == "neutral"
     assert demand_level(0.14, 0.10)[0] == "Demanding expectations"
     assert demand_level(0.25, 0.20)[0] == "Very demanding expectations"
-    assert demand_level(float("nan"), 0.10)[1] == "orange"
+    assert demand_level(float("nan"), 0.10)[1] == "neutral"
     assert "long-run average" in demand_level(0.05, float("nan"))[2]

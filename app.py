@@ -6,6 +6,7 @@ Run with:  streamlit run app.py
 from __future__ import annotations
 
 import html
+import re
 import textwrap
 from urllib.parse import urlencode
 from concurrent.futures import ThreadPoolExecutor
@@ -210,7 +211,8 @@ CSS = """
     color: var(--ink-2) !important; background: #e4ebe5 !important; }
 
 /* Panels: flat pad sheets with a hairline edge, no shadows */
-.st-key-card, [class*="st-key-card_"], [class*="st-key-verdict_"], [class*="st-key-scen_"], [class*="st-key-foot"] {
+.st-key-card, [class*="st-key-card_"], [class*="st-key-verdict_"], .st-key-scen_0, .st-key-scen_1, .st-key-scen_2,
+[class*="st-key-foot"] {
     background: var(--panel); border-color: var(--rule) !important; }
 [data-testid="stPlotlyChart"], [data-testid="stTable"] { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; }
 [data-testid="stPlotlyChart"] { padding: 4px 6px; box-sizing: border-box; overflow: hidden; }
@@ -218,12 +220,13 @@ CSS = """
 [data-testid="stTable"] { overflow-x: auto; }
 [data-testid="stTable"] table, [data-testid="stTable"] th, [data-testid="stTable"] td {
     font-family: "Pad Figures", "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; }
+[data-testid="stTable"] th, [data-testid="stTable"] th * { color: var(--muted) !important; font-weight: 600; }   /* 6:1 */
 
 /* Verdict: the headline's ink carries the result; the sheet stays plain */
 [class*="st-key-verdict_"] [data-testid="stHeadingWithActionElements"] h3 { font-size: 1.45rem; line-height: 1.25; padding-top: 2px; text-wrap: balance; }
-[class*="st-key-verdict_green"] .stMarkdownColoredText { color: var(--cheap) !important; }
-[class*="st-key-verdict_red"] .stMarkdownColoredText { color: var(--red) !important; }
-[class*="st-key-verdict_orange"] .stMarkdownColoredText { color: var(--amber) !important; }
+[class*="st-key-verdict_green"] h3 .stMarkdownColoredText { color: var(--cheap) !important; }
+[class*="st-key-verdict_red"] h3 .stMarkdownColoredText { color: var(--red) !important; }
+[class*="st-key-verdict_orange"] h3 .stMarkdownColoredText { color: var(--amber) !important; }
 [class*="st-key-verdict_"] [data-testid="stMarkdownContainer"] p,
 [class*="st-key-verdict_"] [data-testid="stCaptionContainer"] p { max-width: 64ch; }
 /* The visitor's own numbers, wherever they're quoted in text */
@@ -251,7 +254,8 @@ CSS = """
     flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }   /* one ruled line of tabs; scrolls on phones */
 [data-baseweb="tab"] { border-radius: 0 !important; padding: 10px 14px !important; height: auto !important; background: transparent !important;
     border-bottom: 3px solid transparent !important; margin-bottom: -1px; transition: none !important; }
-[data-baseweb="tab"] p { font-weight: 600; color: var(--muted); font-size: .9rem; }
+[data-baseweb="tab"] { flex: 0 0 auto !important; }
+[data-baseweb="tab"] p { font-weight: 600; color: var(--muted); font-size: .9rem; white-space: nowrap; }
 [data-baseweb="tab"]:hover p { color: var(--ink); }
 [data-baseweb="tab"][aria-selected="true"] { border-bottom-color: var(--ledger) !important; }
 [data-baseweb="tab"][aria-selected="true"] p { color: var(--ledger) !important; }
@@ -269,7 +273,14 @@ CSS = """
 
 /* Buttons */
 [data-testid="stMain"] .stButton button, [data-testid="stDownloadButton"] button { font-weight: 600; border-radius: 6px; }
-[data-testid="stMain"] .stButton button:disabled { opacity: .55; cursor: default; }
+[data-testid="stMain"] .stButton button:disabled { opacity: 1; cursor: default; color: var(--muted); background: transparent;
+    border-style: dashed; }   /* reads as "this one is current", not as a faded control */
+/* A note about how far to trust the numbers: a ruled line with a small amber mark, never a tinted banner */
+.pad-note { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 8px 0 8px 22px; margin: 4px 0 10px 0;
+    color: var(--ink-2); font-size: .9rem; line-height: 1.5; position: relative; }
+.pad-note::before { content: ""; position: absolute; left: 4px; top: 14px; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--amber); }
+.your-settings { color: var(--ink-2) !important; font-weight: 500 !important; line-height: 1.6; }
 
 /* Sidebar: ledger-green bookcloth, compact enough that the first slider shows on a laptop screen */
 [data-testid="stSidebarHeader"] { height: 2.25rem; padding-top: .5rem; padding-bottom: 0; }
@@ -284,7 +295,7 @@ CSS = """
 [data-testid="stSidebar"] [data-baseweb="tag"] { background: #b8c6ff !important; }
 [data-testid="stSidebar"] [data-baseweb="tag"] span, [data-testid="stSidebar"] [data-baseweb="tag"] svg { color: #14256b !important; fill: #14256b !important; }
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { color: #d3e3d9 !important; text-wrap: pretty; }   /* 7:1 on the cloth */
-[data-testid="stMain"] [data-testid="stCaptionContainer"] p { color: var(--muted); }
+[data-testid="stMain"] [data-testid="stCaptionContainer"] p { color: var(--muted); max-width: 72ch; }
 [data-testid="stCaptionContainer"] { opacity: 1 !important; }   /* Streamlit fades captions to 60%; the colours above are set to pass on their own */
 .side-label { color: #dce9e1; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
               margin: 2px 0 4px 4px; }
@@ -370,7 +381,7 @@ DARK_CSS = """
 [data-testid="stMain"] label, [data-testid="stMain"] [data-testid="stWidgetLabel"] p { color: var(--ink); }
 [data-testid="stMain"] h1, [data-testid="stMain"] h2, [data-testid="stMain"] h3, [data-testid="stMain"] h4, .page-head h2, .hero h1 { color: #f4f8f5 !important; }
 [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p, .footer { color: var(--muted) !important; }
-[data-testid="stMetric"], .st-key-card, [class*="st-key-card_"], [class*="st-key-verdict_"], [class*="st-key-scen_"],
+[data-testid="stMetric"], .st-key-card, [class*="st-key-card_"], [class*="st-key-verdict_"], .st-key-scen_0, .st-key-scen_1, .st-key-scen_2,
 [class*="st-key-kpis_"], [class*="st-key-foot"], [data-testid="stPlotlyChart"], [data-testid="stTable"], .qcard {
     background: var(--panel) !important; border-color: var(--rule) !important; box-shadow: none !important; }
 [data-testid="stMetric"] { background: transparent !important; }
@@ -603,10 +614,26 @@ def reset_assumptions(ticker: str) -> None:
         del st.session_state[k]
 
 
-def apply_values(values: dict) -> None:
-    """Button callback: put scenario values into the sidebar sliders."""
+def apply_values(values: dict, message: str = "") -> None:
+    """Button callback: put scenario values into the sidebar sliders, and say so on the next run."""
     for key, v in values.items():
         st.session_state[key] = v
+    if message:
+        st.session_state["_loaded_msg"] = message
+
+
+def show_loaded_message() -> None:
+    """A confirmation after a scenario is loaded into the sliders (which may be hidden on a phone)."""
+    msg = st.session_state.pop("_loaded_msg", None)
+    if msg:
+        st.toast(msg, icon=":material/check:")
+
+
+def assumptions_summary(items) -> None:
+    """Phones only: the visitor's own settings in blue above the tabs, since the sliders sit behind »."""
+    figs = " · ".join(f'{html.escape(label)} <span class="you">{html.escape(value)}</span>' for label, value in items)
+    st.markdown(f'<p class="mobile-only your-settings">Your assumptions: {figs}. '
+                'Change them with » at the top left.</p>', unsafe_allow_html=True)
 
 
 def pct_slider(label: str, lo: float, hi: float, default: float, step: float, key: str, help: str) -> float:
@@ -632,13 +659,14 @@ def slider_value(frac: float, lo: float, hi: float, step: float) -> float:
 
 def verdict_box(name: str, value: float, price: float, upside: float, noun: str, extra: str = "",
                 caveats=()) -> None:
-    if upside > 0.15:
-        tone, color = "looks **undervalued**", "green"
-    elif upside < -0.15:
+    color = verdict_tone(-upside)            # upside is value / price - 1, so the price gap is its opposite
+    if color == "green":
+        tone = "looks **undervalued**"
+    elif color == "red":
         # With a known blind spot the honest claim is about the model, not the stock.
-        tone, color = ("is priced **well above** this model's estimate" if caveats else "looks **overvalued**"), "red"
+        tone = "is priced **well above** this model's estimate" if caveats else "looks **overvalued**"
     else:
-        tone, color = "looks **roughly fairly priced**", "orange"
+        tone = "looks **roughly fairly priced**"
     # Phrase it the same way as the "Gap vs. price" metric (value / price - 1) so the numbers match.
     if abs(upside) < 0.005:
         where = "almost exactly the same as"
@@ -647,7 +675,7 @@ def verdict_box(name: str, value: float, price: float, upside: float, noun: str,
     with st.container(border=True, key=f"verdict_{color}"):
         st.markdown(
             esc(
-                f"### :{color}[{name} {tone}]\n"
+                f"### {name + ' ' + tone if color == 'neutral' else f':{color}[{name} {tone}]'}\n"
                 f"Based on your assumptions, the model estimates it's worth **${value:,.2f}** per {noun}, "
                 f"{where} today's price of **${price:,.2f}**.\n\n{extra}"
             ),
@@ -659,8 +687,6 @@ def verdict_box(name: str, value: float, price: float, upside: float, noun: str,
             labels = " · ".join(label for label, _ in caveats)
             with st.expander(f"This estimate is probably too low here ({labels}). Why?", icon=":material/warning:"):
                 st.markdown(esc("\n\n".join(f"**{label.capitalize()}.** {text}" for label, text in caveats)))
-        st.markdown('<p class="mobile-only">Tap » at the top left to change the assumptions.</p>',
-                    unsafe_allow_html=True)
 
 
 def priced_in_sentence(g: float, mine: float, years: int, terminal: float, what: str) -> str:
@@ -676,8 +702,9 @@ def priced_in_sentence(g: float, mine: float, years: int, terminal: float, what:
 
 
 def warnings_box(warnings) -> None:
+    """Notes about how far to trust the numbers: a plain line on the pad, not a tinted banner."""
     for w in warnings:
-        st.warning(esc(w), icon=":material/warning:")
+        st.markdown(f'<p class="pad-note">{html.escape(w)}</p>', unsafe_allow_html=True)
 
 
 def download_button(tables, ticker: str, row=None) -> None:
@@ -755,8 +782,10 @@ def scenario_cards(table: pd.DataFrame, price: float, rate_label: str, apply_key
             if name.startswith("Middle"):
                 st.button("Your current settings", key=f"use_{name}", disabled=True, width="stretch")
             else:
+                msg = (f"Loaded the {name.lower()} settings: growth {row['Growth next year']:.1%}, long-term "
+                       f"{row['Long-term growth']:.1%}, {rate_label.lower()} {row['Required return']:.1%}.")
                 st.button(f"Use {name.lower()} settings", key=f"use_{name}", on_click=apply_values,
-                          args=(apply_keys(row),), width="stretch")
+                          args=(apply_keys(row), msg), width="stretch")
     explain(label="What the three scenarios mean", text=
         "**What this shows:** instead of one precise-looking number, three versions of the estimate.\n\n"
         "- **Pessimistic:** slower growth and a higher required return, as if things go worse than expected.\n"
@@ -771,7 +800,7 @@ def scenario_cards(table: pd.DataFrame, price: float, rate_label: str, apply_key
 
 def price_chart(ticker: str, price: float, scen: pd.DataFrame, noun: str) -> None:
     hist = fetch_history(ticker)
-    st.markdown("### Price over the last 5 years vs. the estimate")
+    st.markdown("### Price over the last 5 years vs. the cash-flow model")
     if hist is None or hist.empty:
         st.caption("Price history isn't available for this ticker.")
         return
@@ -789,6 +818,9 @@ def price_chart(ticker: str, price: float, scen: pd.DataFrame, noun: str) -> Non
                     line=dict(color=SCENARIO_COLORS["Pessimistic"], width=1.5, dash="dot"))
     fig.add_scatter(x=[x0, x1], y=[hi, hi], name="Optimistic", mode="lines",
                     line=dict(color=SCENARIO_COLORS["Optimistic"], width=1.5, dash="dot"))
+    for y, label in ((lo, "Pessimistic"), (hi, "Optimistic")):   # name the dotted lines where they end
+        fig.add_annotation(x=x1, y=y, xref="x", yref="y", text=label, showarrow=False, xanchor="right",
+                           yanchor="bottom", font=dict(size=11, color=MUTED), bgcolor=PAPER)
     top = max(float(hist.max()), hi, mid) * 1.08
     chart_layout(fig, height=380, yaxis=dict(tickprefix="$", tickformat=",.0f", range=[0, top]))
     show(fig)
@@ -796,7 +828,8 @@ def price_chart(ticker: str, price: float, scen: pd.DataFrame, noun: str) -> Non
     change = price / first - 1 if first else float("nan")
     explain(label="How to read this chart", text=
         f"**What this shows:** the {noun} price over the last 5 years (grey line) compared with today's estimate "
-        "(blue dashed line). The shaded band runs from the pessimistic to the optimistic scenario.\n\n"
+        "(blue dashed line). The shaded band runs from the cash-flow model's pessimistic to its optimistic scenario: "
+        "a narrower range than the fair-value range on the Overview tab, which spans several methods.\n\n"
         f"**How to read it:** over this period the price changed by **{pct(change, 0)}**. When the grey line is above "
         "the band, the market was paying more than even the optimistic scenario suggests; below it, less than "
         "the pessimistic one. The estimate is a single line because it uses today's data; it doesn't show what "
@@ -941,14 +974,13 @@ def outlook_tab(data, a, ticker: str, noun: str, today_value: float = None) -> N
         def tint(v):
             if pd.isna(v):
                 return ""
-            return "color: #1f6b43; font-weight: 600" if v >= 0 else "color: #b4261d; font-weight: 600"
+            return f"color: {COLOUR_HEX['green']}; font-weight: 600" if v >= 0 else f"color: {RED}; font-weight: 600"
 
-        style = t.style.format({
-            "Price": "${:,.2f}", "Change vs. today": "{:+.1f}%", "Yearly return incl. dividends": "{:+.1f}%",
-        }, na_rep="n/a")
-        style = style.map(tint, subset=["Change vs. today", "Yearly return incl. dividends"]) if hasattr(style, "map") \
-            else style.applymap(tint, subset=["Change vs. today", "Yearly return incl. dividends"])
-        st.dataframe(style, hide_index=True, width="stretch", height=36 * (len(t) + 1) + 4)  # show every row
+        change_cols = ["Change vs. today", "Yearly return incl. dividends"]
+        style = t.style.format({"Price": "${:,.2f}", **{c: (lambda v: acct_pct(v / 100, signed=True))
+                                                        for c in change_cols}}, na_rep="n/a")
+        style = style.map(tint, subset=change_cols) if hasattr(style, "map") else style.applymap(tint, subset=change_cols)
+        st.table(style.hide(axis="index"))
     explain(label="What the columns mean", text=
         "**What the columns mean:**\n"
         f"- **Price:** where the price would be {when} in that outcome.\n"
@@ -999,10 +1031,11 @@ def company_data_tab(c, base_amount=None) -> None:
 
     st.markdown("### Past financials")
     src = getattr(c, "statements_source", "Yahoo Finance")
-    st.caption(f"Yearly figures from {src}" + (" (the company's own filings with the SEC)" if src == "SEC EDGAR" else "")
-               + ". Share price, debt and cash from Yahoo Finance.")
+    st.caption("Yearly figures, share price, debt and cash from Yahoo Finance." if src != "SEC EDGAR" else
+               "Yearly figures from SEC EDGAR (the company's own filings with the SEC). Share price, debt and cash "
+               "from Yahoo Finance.")
     h = c.history().rename(columns=HISTORY_NAMES)
-    st.dataframe(h.style.format(lambda v: "n/a" if pd.isna(v) else money(v)), width="stretch")
+    st.table(h.style.format(acct_money).apply(red_negatives, axis=None))
     text = (
         "**What these mean:**\n"
         "- **Sales (revenue):** everything customers paid the company that year.\n"
@@ -1033,8 +1066,11 @@ def _rates_around(rate: float, floor: float) -> list:
 
 def reverse_verdict(g: float, ref: float, what: str, caption: str) -> None:
     head, color, text = demand_level(g, ref, what)
+    heading = head if color == "neutral" else f":{color}[{head}]"
     with st.container(border=True, key=f"verdict_{color}_reverse"):
-        st.markdown(esc(f"### :{color}[{head}]\n{text}"))
+        st.markdown(esc(f"### {heading}\n{text}\n\n"
+                        "The headline at the top of the page compares today's price with several valuation methods; "
+                        "this tab asks the same question the other way round: what growth would that price need?"))
         st.caption(esc(caption))
 
 
@@ -1047,8 +1083,10 @@ def growth_bars(rows: list, title: str) -> None:
     labels = [r[0] for r in rows][::-1]
     values = [r[1] * 100 for r in rows][::-1]
     colors = [r[2] for r in rows][::-1]
+    hatch = ["/" if r[0].startswith("Yardstick") else "" for r in rows][::-1]   # the average of others, drawn as one
     fig = go.Figure(go.Bar(
-        x=values, y=labels, orientation="h", marker_color=colors,
+        x=values, y=labels, orientation="h",
+        marker=dict(color=colors, pattern=dict(shape=hatch, fgcolor=PAPER, size=6, solidity=0.35)),
         text=[f"{v:+.1f}%" for v in values], textposition="outside", cliponaxis=False,
         hovertemplate="%{y}: %{x:.1f}% a year<extra></extra>",
     ))
@@ -1071,7 +1109,7 @@ def implied_grid_view(grid: pd.DataFrame, ref: float, cur_rate: float, cur_years
             return RED_BG
         if v < ref - 0.02:
             return GREEN_BG
-        return "background-color: rgba(138,90,0,0.14)"
+        return ""   # close to the yardstick: no colour (the fifteen-percent rule)
 
     def styles(df: pd.DataFrame) -> pd.DataFrame:
         out = pd.DataFrame("", index=df.index, columns=df.columns)
@@ -1088,7 +1126,7 @@ def implied_grid_view(grid: pd.DataFrame, ref: float, cur_rate: float, cur_years
     shown.columns = [f"Over {n} years" for n in grid.columns]
     st.table(shown.style.format(lambda v: "—" if pd.isna(v) else f"{v:.1%}").apply(styles, axis=None))
     ref_txt = "n/a" if pd.isna(ref) else f"{ref:.1%}"
-    st.caption(f"Green = below the yardstick ({ref_txt})  ·  amber = close to it  ·  red = above it  ·  "
+    st.caption(f"Green = below the yardstick ({ref_txt})  ·  plain = close to it  ·  red = above it  ·  "
                "outlined cell = your settings")
 
 
@@ -1116,22 +1154,22 @@ def reverse_tab_stock(c, a, g_implied: float, cash_name: str, rate_name: str) ->
               help=f"The steady yearly growth in {cash_name} for the next {a.years} years that makes the estimate "
                    "equal today's price.")
     m2.metric("Your growth", pct(a.growth_rate),
-              delta=(f"{a.growth_rate - g_implied:+.1%} vs. priced in" if pd.notna(g_implied) else None),
+              delta=(f"{pts(a.growth_rate - g_implied)} vs. priced in" if pd.notna(g_implied) else None),
               help="Your 'Growth next year' slider. Positive = you expect more than the price needs.")
     m3.metric("Priced-in return", pct(r_implied),
-              delta=(f"{r_implied - a.wacc:+.1%} vs. your {rate_short.split()[0]}" if pd.notna(r_implied) else None),
+              delta=(f"{pts(r_implied - a.wacc)} vs. your {rate_short}" if pd.notna(r_implied) else None),
               help="The yearly return you'd earn buying at today's price if your growth assumptions come true. "
                    f"Higher than your {rate_short} = the stock looks cheap on your assumptions.")
     m4.metric("Yardstick", pct(ref),
               help="Average of the company's past sales growth and analysts' forecast for next year.")
 
     rows = [("Priced in by today's price", g_implied, TEAL), ("Your assumption", a.growth_rate, BLUE),
-            ("Yardstick (sales record + analysts)", ref, MUTED)]
+            ("Yardstick (sales record + analysts)", ref, GREY)]
     rows += [(k, v, AMBER if k.startswith("Analysts") else GREY) for k, v in bench.items()]
     growth_bars(rows, "Growth priced in vs. reality checks")
     explain(label="How to read this chart", text=
         "**How to read it:** the **green bar** is the growth the market is betting on. The other bars are reality "
-        "checks: what you assume, the yardstick (the dark grey bar: the average of past sales growth and analysts' "
+        "checks: what you assume, the yardstick (the hatched bar: the average of past sales growth and analysts' "
         "forecast, used for the verdict above), how fast sales and cash flow actually grew over the past few years, and what "
         "analysts expect next year. If the green bar is much longer than all of them, the price needs the company "
         "to beat its own record. If it's shorter, the price asks for less than the company has been delivering."
@@ -1253,6 +1291,34 @@ def view_switch(options: list, key: str) -> str:
     return choice or options[0]
 
 
+def acct_money(v) -> str:
+    """Accounting style: negatives in brackets, e.g. ($2.49B)."""
+    if v is None or pd.isna(v):
+        return "n/a"
+    return money(v) if v >= 0 else f"({money(-v)})"
+
+
+def acct_pct(v, digits: int = 1, signed: bool = False) -> str:
+    """Percent in accounting style: (15.2%) for negatives; +8.9% when signed."""
+    if v is None or pd.isna(v):
+        return "n/a"
+    if v < 0:
+        return f"({abs(v):.{digits}%})"
+    return f"{v:+.{digits}%}" if signed else f"{v:.{digits}%}"
+
+
+def red_negatives(df: pd.DataFrame) -> pd.DataFrame:
+    """Styler map: negative figures in red ink."""
+    return df.map(lambda v: f"color: {RED}" if isinstance(v, (int, float)) and pd.notna(v) and v < 0 else "") \
+        if hasattr(df, "map") else df.applymap(
+        lambda v: f"color: {RED}" if isinstance(v, (int, float)) and pd.notna(v) and v < 0 else "")
+
+
+def pts(x: float) -> str:
+    """A difference between two rates, in percentage points."""
+    return f"{x * 100:+.1f} pts"
+
+
 def share_count(n: float, short: bool = False) -> str:
     """14.5 billion shares reads better than 14,532.2 million."""
     if n >= 1e9:
@@ -1280,6 +1346,8 @@ def probability_view(simulate, price: float, central: float, noun: str, key: str
     ) or "Medium"
     sim = simulate(level)
     q = sim.summary()
+    st.caption("This uses the cash-flow model only, with your sidebar settings, not the other methods in the "
+               "fair-value range at the top of the page. A share of simulated outcomes, not a forecast.")
     m1, m2, m3, m4 = kpi_row(4, "compact_mc")
     m1.metric("Chance it's justified", f"{sim.prob_above_price:.0%}",
               help=f"Share of the 5,000 simulated outcomes where the value is at least today's price (${price:,.2f}).")
@@ -1295,7 +1363,8 @@ def probability_view(simulate, price: float, central: float, noun: str, key: str
     bins = dict(start=lo, end=hi, size=size)
     fig = go.Figure()
     fig.add_histogram(x=vals[vals < price], xbins=bins, name="Below today's price", marker_color=RED, opacity=0.75)
-    fig.add_histogram(x=vals[vals >= price], xbins=bins, name="Above today's price", marker_color=TEAL, opacity=0.75)
+    fig.add_histogram(x=vals[vals >= price], xbins=bins, name="Above today's price",
+                      marker_color=COLOUR_HEX["green"], opacity=0.75)
     fig.add_vline(x=price, line_dash="dash", line_color=INK, line_width=2,
                   annotation_text=f"Today ${price:,.0f}", annotation_position="top")
     fig.add_vline(x=central, line_color=BLUE, line_width=2,
@@ -1307,8 +1376,8 @@ def probability_view(simulate, price: float, central: float, noun: str, key: str
     explain(
         "**What this shows:** the valuation run 5,000 times, each time with slightly different growth, long-term "
         "growth and required return drawn around your settings. Each bar counts how many outcomes landed at that "
-        "value: **teal** ones are above today's price (the price is justified), **red** ones below.\n\n"
-        "**How to read it:** the *chance the price is justified* is the share of teal. Around 50% means the price "
+        "value: **green** ones are above today's price (the price is justified), **red** ones below.\n\n"
+        "**How to read it:** the *chance the price is justified* is the share of green. Around 50% means the price "
         "matches your assumptions; much lower means the price needs things to go better than you expect. The "
         "range is lopsided to the right because small changes in growth or the required return can make the "
         "value much larger, but it can't fall below zero as easily. The middle 98% of outcomes are drawn."
@@ -1372,20 +1441,19 @@ def peers_view(c, dcf_value) -> None:
         st.warning("Couldn't load the similar companies right now.")
         return
     med = peer_medians(list(peers.values()))
-    rows = [{"Company": f"▶ {c.name} ({c.ticker})", **multiples(c)}]
+    rows = [{"Company": f"{c.name} ({c.ticker})", **multiples(c)}]
     rows += [{"Company": f"{p.name} ({t})", **multiples(p)} for t, p in peers.items()]
     rows.append({"Company": "Median of similar companies", **med})
     table = pd.DataFrame(rows).set_index("Company")
     pct_cols = ["Cash flow yield", "Operating margin", "Sales growth"]
-    st.dataframe(
-        table, width="stretch",
-        column_config={
-            "P/E": st.column_config.NumberColumn(format="%.1f", help="Price ÷ last year's profit per share."),
-            "Forward P/E": st.column_config.NumberColumn(format="%.1f", help="Price ÷ next year's expected profit per share."),
-            "EV/EBITDA": st.column_config.NumberColumn(format="%.1f", help="Whole-business value (incl. debt) ÷ earnings before interest, tax and depreciation."),
-            **{col: st.column_config.NumberColumn(format="percent") for col in pct_cols},
-        },
-    )
+    fmt = {col: (lambda v: "n/a" if pd.isna(v) else f"{v:.1f}") for col in table.columns if col not in pct_cols}
+    fmt.update({col: acct_pct for col in pct_cols if col in table.columns})
+    first = table.index[0]
+    st.table(table.style.format(fmt).apply(red_negatives, axis=None)
+             .apply(lambda row: ["font-weight: 700" if row.name == first else "" for _ in row], axis=1))
+    st.caption("P/E = price ÷ last year's profit per share · Forward P/E = price ÷ next year's expected profit per "
+               "share · EV/EBITDA = whole-business value (including debt) ÷ earnings before interest, tax and "
+               "depreciation. Your company is in bold.")
     implied = implied_prices(c, med)
     if implied:
         st.markdown("### What the share would be worth if priced like its peers")
@@ -1726,46 +1794,51 @@ def _method_count_sentence(r) -> str:
     return "; ".join([first] + rest) + "."
 
 
+FAIR_BAND = 0.15   # within 15% either way counts as "close": no colour, everywhere on the site
+
+
+def verdict_tone(gap: float) -> str:
+    """One colour rule for every verdict: neutral when close, red when the price is well above, green below."""
+    if abs(gap) < FAIR_BAND:
+        return "neutral"
+    return "red" if gap > 0 else "green"
+
+
+WIDTH_CLAUSE = {
+    "narrow": "they broadly agree",
+    "wide": "they disagree a fair amount, so treat any one number loosely",
+    "very wide": "that's a very wide range, so treat any one number loosely",
+}
+
+
 def fair_value_verdict(name: str, price: float, band, methods, tail: str, caveats) -> None:
-    """The headline: how wide the fair-value range is and where today's price sits in it."""
+    """The headline: where today's price sits against the methods' middle estimate, then how wide they spread."""
     lo, mid, hi = band
     r = price_reading(price, methods, band)
-    rng = f"{RANGE_WORDS[r.width]} fair-value range"
-    side = "red" if r.position == "above" else "green"
-    if r.position == "within":
-        head, color = f"{name}'s price is inside {rng}", "neutral"
-    elif r.gap < 0.10:       # close to the edge of a range: not a call worth colouring
-        head, color = f"{name} is priced just {r.position} {rng}", "neutral"
-    elif r.gap < 0.30:
-        head, color = f"{name} is priced {r.position} {rng}", side
+    gap = price / mid - 1 if mid else 0.0        # + means the price is above the middle estimate
+    color = verdict_tone(gap)
+    side = "above" if gap > 0 else "below"
+    if color == "neutral":
+        head = f"{name}'s price is close to the middle of its fair-value estimates"
+    elif abs(gap) < 0.35:
+        head = f"{name} is priced {side} the middle of its fair-value estimates"
     else:
-        head, color = f"{name} is priced well {r.position} {rng}", side
-    edge = "top" if r.position == "above" else "bottom"
-    if r.position == "within":
-        where = "inside it"
-    elif r.gap < 0.005:
-        where = f"right at the {edge} of it"
-    else:
-        where = f"{r.gap:.0%} {r.position} the {edge} of it"
-    count = _method_count_sentence(r) if r.total >= 2 else ""
+        head = f"{name} is priced well {side} the middle of its fair-value estimates"
     heading = head if color == "neutral" else f":{color}[{head}]"
+    where = "close to" if color == "neutral" else f"{abs(gap):.0%} {side}"
     with st.container(border=True, key=f"verdict_{color}"):
         st.markdown(esc(
             f"### {heading}\n"
-            f"The valuation methods' middle estimates run from **${lo:,.2f}** to **${hi:,.2f}** a share "
-            f"(middle **${mid:,.2f}**). {AGREEMENT[r.width]}. Today's price, **${price:,.2f}**, is {where}. "
-            f"{count} The chart below shows each method.\n\n{tail}"
+            f"Today's price, **${price:,.2f}**, is {where} the middle of the valuation methods' estimates "
+            f"(**${mid:,.2f}** a share). They run from **${lo:,.2f}** to **${hi:,.2f}**: {WIDTH_CLAUSE[r.width]}."
+            f"\n\n{tail}"
         ), unsafe_allow_html=True)
-        st.caption("The range is where the methods' middle estimates fall; with four or more methods, the single "
-                   "highest and lowest are left out so one unusual result can't stretch it. Not a prediction of "
-                   "where the price will go.")
+        st.caption("Not a prediction of where the price will go.")
         if caveats:
             labels = " · ".join(label for label, _ in caveats)
             with st.expander(f"The cash-flow model is probably too low here ({labels}). Why?",
                              icon=":material/warning:"):
                 st.markdown(esc("\n\n".join(f"**{label.capitalize()}.** {text}" for label, text in caveats)))
-        st.markdown('<p class="mobile-only">Tap » at the top left to change the assumptions.</p>',
-                    unsafe_allow_html=True)
 
 
 METHOD_LABELS = {   # shorter names so the chart reads on a phone
@@ -1790,8 +1863,10 @@ def football_field(methods, price: float, band, distorted: bool) -> None:
     if with_band:
         fig.add_vrect(x0=band[0], x1=band[2], fillcolor=LEDGER_FILL.format(a=0.14 if dark else 0.08),
                       line_width=0, layer="below")
+        narrow = band[0] > 0 and band[2] / band[0] < 1.35
         fig.add_annotation(x=(band[0] + band[2]) / 2, y=-0.68, xref="x", yref="y", showarrow=False,
-                           text="Most methods agree here", font=dict(color=MUTED, size=12))
+                           text="Most methods agree here" if narrow else "Where the middle estimates fall",
+                           font=dict(color=MUTED, size=12), bgcolor=PAPER)
     fills, edges, edge_w, opacity = [], [], [], []
     for m, f in zip(shown, flagged):
         context = m.kind == "market"                    # where the price has been, not a value: outlined only
@@ -1836,7 +1911,7 @@ def football_field(methods, price: float, band, distorted: bool) -> None:
     explain(label="How to read this chart", text=
         "**What this shows:** several different ways of answering *what is one share worth?*, side by side. "
         "Each bar runs from that method's low to high estimate; the dark tick is its middle. The **dashed line** "
-        "is today's price and the **shaded band** is where most methods agree. Click a bar to read that method on its "
+        "is today's price and the **shaded band** is where the methods' middle estimates fall. Click a bar to read that method on its "
         "own; double-click the chart to bring the others back.\n\n"
         "- **Cash-flow model:** this app's main model, using your sidebar settings. The bar runs from the "
         "pessimistic to the optimistic scenario.\n"
@@ -1872,15 +1947,13 @@ def footing_html(rows, total_label: str, total: str, price: float, caption: str)
 
 def footing_panel(c, r, years: int, payout: bool) -> None:
     """How the cash-flow model gets to its per-share value, footed like a worksheet."""
-    div, unit = scale_for([r.enterprise_value, r.equity_value, sum(r.pv_fcf), r.pv_terminal_value])
-
-    def col(x: float) -> str:   # every amount in the column's one unit, so the figures foot by eye
-        return f"${x / div:,.2f}{unit}"
+    def col(x: float) -> str:   # each amount in its own unit ($37.76B, not $0.04T); figures still right-align
+        return money(x)
 
     pv_next, pv_after = col(sum(r.pv_fcf)), col(r.pv_terminal_value)
     if payout:
-        rows = [("", f"Cash returned, next {years} years", pv_next, ""),
-                ("+", "Cash returned, all years after", pv_after, ""),
+        rows = [("", f"Paid out, next {years} years", pv_next, ""),
+                ("+", "Paid out, all years after", pv_after, ""),
                 ("=", "For shareholders", col(r.equity_value), "sub")]
     else:
         debt = (("−", "Debt, net of cash", f"({col(r.net_debt)})", "neg") if r.net_debt > 0 else
@@ -1927,16 +2000,20 @@ def render_company(c, ticker: str) -> None:
                                                    ("Bank method" if payout else "", "ledger")])
 
     # ---- Sidebar ------------------------------------------------------------
+    show_loaded_message()
+    has_analyst = c.analyst_growth is not None
+    st.session_state.setdefault(k("base"), default_base(c))   # latest year if cash flow has been growing
+    # With no positive cash flow there's nothing for a growth rate to grow, so the sidebar says so instead.
+    blocked_now = check_company(c, st.session_state[k("base")])[0] is not None
     with st.sidebar:
         st.markdown("### 2. Adjust the assumptions")
+        if blocked_now:
+            st.caption("Nothing to adjust: the cash-flow model can't value this company from its cash flow, so the "
+                       "sliders would have nothing to work on. The page explains what still works.")
         # The sliders (the visitor's own numbers) come first; the choices of starting point sit beneath them.
         slider_box = st.container()
         start_box = st.container()
     with start_box:
-        has_analyst = c.analyst_growth is not None
-        st.session_state.setdefault(k("base"), default_base(c))   # latest year if cash flow has been growing
-        # With no positive cash flow there's nothing for a growth rate to grow, so don't offer the choice.
-        blocked_now = check_company(c, st.session_state[k("base")])[0] is not None
         if blocked_now:
             src = st.session_state.get(k("src"), "analyst" if has_analyst else "history")
         else:
@@ -1948,15 +2025,18 @@ def render_company(c, ticker: str) -> None:
                 help="Analysts' forecast = Wall Street's consensus for next year's earnings growth. "
                      "Past sales growth = how fast revenue grew over the last few years.",
             )
-        base = st.radio(
-            "Start cash flow from",
-            ["avg3", "latest"],
-            format_func=lambda b: "3-year average" if b == "avg3" else "Latest year",
-            key=k("base"), horizontal=True,
-            help="The average smooths out one unusually good or bad year; the latest year reflects the "
-                 "company's most recent performance. The default is the latest year when cash flow has been "
-                 "growing (the average would lag behind), and the average otherwise.",
-        )
+        if blocked_now:
+            base = st.session_state[k("base")]   # the page offers the switch when it would help
+        else:
+            base = st.radio(
+                "Start cash flow from",
+                ["avg3", "latest"],
+                format_func=lambda b: "3-year average" if b == "avg3" else "Latest year",
+                key=k("base"), horizontal=True,
+                help="The average smooths out one unusually good or bad year; the latest year reflects the "
+                     "company's most recent performance. The default is the latest year when cash flow has been "
+                     "growing (the average would lag behind), and the average otherwise.",
+            )
 
     SHARE.update(t=ticker, src=src, base=base)
     d = default_assumptions(c, growth_source=src, base=base)
@@ -1970,21 +2050,28 @@ def render_company(c, ticker: str) -> None:
         can_switch = base_cash(c, other_base) > 0
         with st.container(border=True, key="verdict_orange"):
             st.markdown("### :orange[The cash-flow model can't value this company]")
-            st.write(blocking)
+            # negatives in red brackets, the way the rest of the page writes them
+            st.markdown(esc(re.sub(r"\((\$[\d.,]+[BMT]?)\)", r"__RED__(\1)__END__", blocking))
+                        .replace("__RED__", ":red[").replace("__END__", "]"))
             if can_switch:
                 label = "3-year average" if other_base == "avg3" else "latest year"
                 st.markdown(f"Its **{label}** of cash flow is positive, so the model can value it from that instead.")
                 st.button(f"Try the {label}", key=k("unblock"), type="primary",
                           on_click=lambda: st.session_state.__setitem__(k("base"), other_base))
-            st.markdown("The other methods below still work, and the **Company** tab's *Similar companies* view "
-                        "shows how its price compares with its peers.")
+            n_other = sum(m.counts for m in fair_value_methods(c, d, peer_prices_for(ticker), fetch_history(ticker)))
+            still = ("" if n_other == 0 else
+                     "The method below still gives a reference, and" if n_other == 1 else
+                     "The other methods below still work, and")
+            st.markdown(f"{still} the **Company** tab's *Similar companies* view shows how its price compares "
+                        "with its peers." if still else
+                        "The **Company** tab's *Similar companies* view shows how its price compares with its peers.")
         warnings_box(warnings)
         with st.spinner("Comparing with similar companies… (a few seconds the first time)"):
             other = fair_value_methods(c, d, peer_prices_for(ticker), fetch_history(ticker))
         if any(m.counts for m in other):
             st.markdown("### What the other methods can still tell you")
             football_field(other, c.price, fair_value_band(other), distorted=False)
-        t_outlook, t_data = st.tabs(["Price outlook", "Company"])
+        t_outlook, t_data = st.tabs(["Outlook", "Company"])
         with t_outlook:
             outlook_tab(c, d, ticker, "share")
         with t_data:
@@ -2052,42 +2139,30 @@ def render_company(c, ticker: str) -> None:
     with f_col, st.container(border=True, key="foot_stock"):
         footing_panel(c, r, years, payout)
     download_button(company_tables(c, a, r, fetch_history(ticker)), ticker, actions)
+    assumptions_summary([("growth", f"{growth:.1%}"), ("long-term", f"{terminal:.1%}"),
+                         (rate_name.split(" (")[0].lower(), f"{wacc:.1%}"), ("years", str(years))])
 
     t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_data = st.tabs(
-        ["Overview", "What's priced in", "Price outlook", "Forecast", "Scenarios", "Company"])
+        ["Overview", "Priced in", "Outlook", "Forecast", "Scenarios", "Company"])
 
     # ---- Overview ----------------------------------------------------------
     with t_overview:
-        m1, m2, m3, m4 = kpi_row(4, "compact_fair")
-        m1.metric("Current price", f"${c.price:,.2f}", help="What one share costs on the stock market right now.")
-        if band:
-            m2.metric("Fair-value range", f"{short_money(band[0])} – {short_money(band[2])}",
-                      help=f"Where most valuation methods put one share: ${band[0]:,.2f} to ${band[2]:,.2f}. "
-                           "See the chart below.")
-            gap_m = band[1] / c.price - 1
-            m3.metric("Middle estimate", f"${band[1]:,.2f}", delta=f"{gap_m:+.1%} vs. price",
-                      help="The middle of the valuation methods' central estimates.")
-        else:
-            m2.metric("Cash-flow model", f"${r.value_per_share:,.2f}",
-                      help="What the cash-flow model thinks one share is worth with your sidebar settings.")
-            gap_d = r.value_per_share - c.price
-            m3.metric("Gap vs. price", f"{r.upside:+.1%}", delta=f"{'-' if gap_d < 0 else '+'}${abs(gap_d):,.2f} vs. price")
-        m4.metric("Priced-in growth", pct(g_implied),
-                  delta=(f"{g_implied - growth:+.1%} vs. your setting" if pd.notna(g_implied) else None),
-                  delta_color="off",   # a difference, not good or bad news
-                  help=f"The steady yearly growth in {cash_name} over the next {years} years that would make the "
-                       "estimate equal today's price. Higher than your setting = the market expects more than you do.")
-
         st.markdown("### Fair value by method")
         football_field(methods, c.price, band, distorted=bool(caveats))
-
-        price_chart(ticker, c.price, scen, "share")
+        if band:
+            pr = price_reading(c.price, methods, band)
+            count = _method_count_sentence(pr) + " " if pr.total >= 2 else ""
+            st.caption(esc(
+                f"{count}The shaded band runs from the lowest to the highest of the methods' middle estimates "
+                f"(${band[0]:,.2f} to ${band[2]:,.2f}); with four or more methods, the single highest and lowest "
+                "are left out so one unusual result can't stretch it. The middle of the band is the median."))
 
     with t_reverse:
         reverse_tab_stock(c, a, g_implied, cash_name, rate_name)
 
     with t_outlook:
         outlook_tab(c, a, ticker, "share", today_value=r.value_per_share)
+        price_chart(ticker, c.price, scen, "share")
 
     # ---- Forecast ----------------------------------------------------------
     with t_forecast:
@@ -2124,12 +2199,11 @@ def render_company(c, ticker: str) -> None:
         proj = r.projection_table()
         proj.index = proj_years
         proj.columns = ["Growth that year", cash_name.capitalize(), "Worth today per $1", "Value in today's money"]
-        st.dataframe(
+        st.table(
             proj.style.format({
-                "Growth that year": "{:.1%}", cash_name.capitalize(): money,
-                "Worth today per $1": "${:.2f}", "Value in today's money": money,
-            }),
-            width="stretch",
+                "Growth that year": acct_pct, cash_name.capitalize(): acct_money,
+                "Worth today per $1": "${:.2f}", "Value in today's money": acct_money,
+            }).apply(red_negatives, axis=None)
         )
         explain(
             "**How to read the table:** each row is one future year. *Worth today per $1* is the discount: e.g. "
@@ -2310,7 +2384,7 @@ def render_fund(f: FundData, ticker: str) -> None:
     download_button(fund_tables(f, a, r, fetch_history(ticker)), ticker, actions)
 
     t_overview, t_reverse, t_outlook, t_forecast, t_scen, t_inside = st.tabs(
-        ["Overview", "What's priced in", "Price outlook", "Forecast", "Scenarios", "What's inside"])
+        ["Overview", "Priced in", "Outlook", "Forecast", "Scenarios", "What's inside"])
 
     with t_overview:
         m1, m2, m3, m4 = kpi_row(4, "row4")

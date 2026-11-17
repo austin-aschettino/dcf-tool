@@ -220,8 +220,9 @@ def check_company(c: CompanyData, base: str = "avg3") -> Tuple[Optional[str], Li
 
     start = base_cash(c, base)
     if start <= 0:
+        amount = f"negative, (${abs(start) / 1e9:,.2f}B)" if start < 0 else "zero"   # brackets mark a negative
         return (
-            f"{c.name}'s starting {label} is negative or zero ({'-' if start < 0 else ''}${abs(start) / 1e9:,.2f}B), meaning it currently "
+            f"{c.name}'s starting {label} is {amount}, meaning it currently "
             "spends more cash than it brings in. A cash-flow model values a company from the cash it "
             "produces, so it can't give a meaningful number until that turns positive.",
             warnings,
