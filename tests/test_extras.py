@@ -189,3 +189,10 @@ def test_portfolio_volatility_of_offsetting_holdings():
     mixed = portfolio.portfolio_volatility({"A": a, "B": b}, {"A": 0.5, "B": 0.5})
     assert alone > 0.1 and mixed < alone / 5      # opposite moves largely cancel out
     assert portfolio.portfolio_volatility({}, {"A": 1.0}) is None
+
+
+def test_implausible_peer_multiples_are_flagged_and_left_out_of_the_median():
+    from dcf.quality import implausible
+    assert implausible({"P/E": 25.0, "Cash flow yield": 0.04}) == []
+    assert implausible({"P/E": 25.0, "Cash flow yield": 8.35}) == ["Cash flow yield"]   # 835%: a data problem
+    assert implausible({"EV/EBITDA": None}) == []

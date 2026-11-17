@@ -48,6 +48,8 @@ colors:
   night-you-blue: "#9db0ff"
   night-red-ink: "#ff9a8f"
   night-cheap-green: "#7fd6a2"
+  night-grid-up: "rgba(70,170,110,0.30)"
+  night-grid-down: "rgba(220,70,60,0.30)"
   night-amber: "#f0c36b"
   night-peer-green: "#6fb08f"
   night-analyst-amber: "#d6a24a"
@@ -293,7 +295,7 @@ A green-on-green paper palette of inks, where every hue beyond the greens means 
 - **Rule** (rule): panel edges, the tab baseline, zero lines, the pad note's two rules. **Hairline** (hairline): footing row rules and dividers between figures in a row. **Chart Grid** (chart-grid): Plotly gridlines.
 - **Ink** (ink): headings, figures, today's-price line, and every verdict headline that sits within the fair band. **Soft Ink** (ink-soft): body copy, chart text, pad notes and the "Your assumptions" line's words. **Muted Ink** (muted-ink): labels, captions (main column), table headers, inactive tabs, disabled buttons, footing operators, chart range labels and the footer.
 - **Reference lines** are ink: today's price on the fair-value chart, "today's money" forecast lines, and the S&P 500 benchmark (dotted). "All stocks" is muted ink (dashed).
-- Night counterparts: night-ground, night-sheet, night-rule, night-hairline, night-ink, night-muted, night-ledger, night-cloth (the sidebar at night, set in the dark stylesheet), the lifted inks night-you-blue, night-red-ink, night-cheap-green, night-amber, and the chart inks night-peer-green, night-analyst-amber, night-market-grey. **Night Heading** (night-heading) lifts headings and metric values one step above night ink. Up and down deltas and the Strong / Weak badges share one pair of night tints: **Night Up** (night-up-ink on night-up-tint, edged night-up-edge) and **Night Down** (night-down-ink on night-down-tint, edged night-down-edge); the night OK badge is night-amber on its own 14% wash.
+- Night counterparts: night-ground, night-sheet, night-rule, night-hairline, night-ink, night-muted, night-ledger, night-cloth (the sidebar at night, set in the dark stylesheet), the lifted inks night-you-blue, night-red-ink, night-cheap-green, night-amber, and the chart inks night-peer-green, night-analyst-amber, night-market-grey. **Night Heading** (night-heading) lifts headings and metric values one step above night ink. Up and down deltas and the Strong / Weak badges share one pair of night tints: **Night Up** (night-up-ink on night-up-tint, edged night-up-edge) and **Night Down** (night-down-ink on night-down-tint, edged night-down-edge); the night OK badge is night-amber on its own 14% wash. At night the what-if and priced-in grids tint cells with **night-grid-up** and **night-grid-down**, stronger washes than the badges so a tinted cell still reads as green or red on the dark sheet.
 
 ### Named Rules
 **The Blue Ink Rule.** Blue means "yours". It marks only the visitor's assumptions, choices and figures computed from them; what the market's price implies is ledger green, analysts are amber, and market data, peers and the verdict never use blue. Nothing decorative is blue.

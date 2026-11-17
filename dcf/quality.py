@@ -127,12 +127,12 @@ def overall(checks: List[Check]) -> tuple:
     """(label, colour, score 0-1) across the checks that could be graded."""
     graded = [POINTS[ch.grade] for ch in checks if ch.grade in POINTS]
     if not graded:
-        return "Not enough data", "orange", float("nan")
+        return "Not enough data", "neutral", float("nan")
     score = sum(graded) / (2 * len(graded))
     if score >= 0.7:
         return "High-quality business", "green", score
     if score >= 0.4:
-        return "Average quality", "orange", score
+        return "Average quality", "neutral", score
     return "Below-average quality", "red", score
 
 
@@ -234,8 +234,20 @@ def _median(values) -> Optional[float]:
     return statistics.median(vals) if vals else None
 
 
+# Outside these, a multiple is almost certainly a data problem (accounts in another currency, a one-off),
+# not a real valuation: such a peer is shown flagged but left out of the median.
+PLAUSIBLE = {"P/E": (0, 300), "Forward P/E": (0, 300), "EV/EBITDA": (0, 150),
+             "Cash flow yield": (-0.5, 0.5), "Operating margin": (-1.0, 1.0)}
+
+
+def implausible(m: Dict[str, Optional[float]]) -> List[str]:
+    """Names of the multiples outside a believable range."""
+    return [k for k, (lo, hi) in PLAUSIBLE.items() if _ok(m.get(k)) and not lo <= m[k] <= hi]
+
+
 def peer_medians(peers: List[CompanyData]) -> Dict[str, Optional[float]]:
     rows = [multiples(p) for p in peers]
+    rows = [r for r in rows if not implausible(r)] or rows   # keep at least something to compare with
     keys = rows[0].keys() if rows else []
     return {k: _median(r[k] for r in rows) for k in keys}
 
