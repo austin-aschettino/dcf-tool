@@ -244,7 +244,6 @@ CSS = """
 .stMarkdownColoredText[style*="green"], .stMarkdownColoredText.green { color: var(--cheap) !important; }
 .stMarkdownColoredText[style*="red"], .stMarkdownColoredText.red { color: var(--red) !important; }
 [class*="st-key-verdict_red"] h3 .stMarkdownColoredText { color: var(--red) !important; }
-[class*="st-key-verdict_orange"] h3 .stMarkdownColoredText { color: var(--amber) !important; }
 [class*="st-key-verdict_"] [data-testid="stMarkdownContainer"] p,
 [class*="st-key-verdict_"] [data-testid="stCaptionContainer"] p { max-width: 64ch; }
 /* The visitor's own numbers, wherever they're quoted in text */
@@ -362,6 +361,10 @@ CSS = """
 .step .num { flex: 0 0 auto; font-family: var(--figures); font-weight: 700; font-size: 1.5rem; color: var(--ledger); line-height: 1; }
 .step b { display: block; color: var(--ink); margin-bottom: 2px; } .step span { color: var(--muted); font-size: .9rem; }
 [class*="st-key-home_line_"] + [class*="st-key-home_line_"] { border-top: 1px solid var(--hair); padding-top: 12px; }
+/* The Home index's buttons take the reader somewhere, so they're written in navigation's ledger green. */
+[class*="st-key-home_open_"] button p, [class*="st-key-home_open_"] button [data-testid="stIconMaterial"] {
+    color: var(--ledger) !important; font-weight: 600; }
+[class*="st-key-home_open_"] button:hover p { text-decoration: underline; text-underline-offset: 3px; }
 .home-card h4 { margin: 0 0 4px 0; padding: 0; font-size: 1.05rem; font-weight: 700; }
 .home-card p { color: var(--muted); margin: 0; font-size: .9rem; line-height: 1.45; }
 
@@ -1599,9 +1602,8 @@ def company_tab(c, ticker: str, dcf_value=None) -> None:
 # Portfolio
 # --------------------------------------------------------------------------- #
 
-# How demanding a price is: the verdict inks (cheap green, amber ink, red ink), not the chart's source colours
-COLOUR_HEX = {"green": "#7fd6a2" if is_dark() else "#1f6b43", "orange": "#f0c36b" if is_dark() else "#8a5a00",
-              "red": RED, "grey": GREY}
+# How demanding a price is: the verdict inks (cheap green, red ink; plain grey in between), not the chart's source colours
+COLOUR_HEX = {"green": "#7fd6a2" if is_dark() else "#1f6b43", "red": RED, "grey": GREY}
 
 
 
@@ -1828,12 +1830,12 @@ def render_portfolio() -> None:
         tone = {r["Ticker"]: r["Colour"] for r in rows}
 
         def tint(row):
-            bg = {"green": GREEN_BG, "red": RED_BG, "orange": "background-color: rgba(138,90,0,0.14)"}.get(tone[row["Ticker"]], "")
+            bg = {"green": GREEN_BG, "red": RED_BG}.get(tone[row["Ticker"]], "")
             return ["" if col != "Expectations" else bg for col in row.index]
 
         st.markdown("### Holdings")
         st.dataframe(
-            table.style.apply(tint, axis=1), hide_index=True, width="stretch",
+            table.style.apply(tint, axis=1).map(gap_ink, subset=["Gap vs. price"]), hide_index=True, width="stretch",
             column_config={
                 "Name": st.column_config.TextColumn(width=270),
                 "Amount": st.column_config.NumberColumn(format="dollar"),
@@ -1900,6 +1902,21 @@ def verdict_tone(gap: float) -> str:
     if abs(gap) < FAIR_BAND:
         return "neutral"
     return "red" if gap > 0 else "green"
+
+
+def upside_tone(upside: float) -> str:
+    """verdict_tone for a gap written the other way round (estimate ÷ price − 1, as in the tables)."""
+    if upside is None or pd.isna(upside) or upside <= -1:
+        return "neutral"
+    return verdict_tone(1 / (1 + upside) - 1)
+
+
+def gap_ink(upside_pct: float) -> str:
+    """Table cell style for an 'estimate vs. price' gap in percent: red or cheap-green ink, plain when close."""
+    tone = upside_tone(None if upside_pct is None or pd.isna(upside_pct) else upside_pct / 100)
+    # Always the pad's day inks: at night data grids are drawn light and inverted, which lifts these to
+    # the night inks; a night colour here would invert to dark-on-dark.
+    return "" if tone == "neutral" else f"color: {'#1f6b43' if tone == 'green' else '#b4261d'}; font-weight: 600"
 
 
 WIDTH_CLAUSE = {
@@ -2227,8 +2244,8 @@ def render_company(c, ticker: str) -> None:
             share_button()
         other_base = "avg3" if base == "latest" else "latest"
         can_switch = base_cash(c, other_base) > 0
-        with st.container(border=True, key="verdict_orange"):
-            st.markdown("### :orange[The cash-flow model can't value this company]")
+        with st.container(border=True, key="verdict_neutral"):
+            st.markdown("### The cash-flow model can't value this company")
             # negatives in red brackets, the way the rest of the page writes them
             st.markdown(esc(re.sub(r"\((\$[\d.,]+[BMT]?)\)", r"__RED__(\1)__END__", blocking))
                         .replace("__RED__", ":red[").replace("__END__", "]"))
@@ -2465,8 +2482,11 @@ def fund_facts(f: FundData) -> None:
               help="Price ÷ yearly earnings of the companies the fund owns. Higher = you pay more for each $1 of profit. "
                    "The S&P 500's long-run average is about 16.")
     k4.metric("Fund size", money(f.total_assets), help="Total money invested in the fund.")
+    def past(v):   # a loss is written in red accounting brackets, like every other negative
+        return f":red[{acct_pct(v)}]" if v is not None and not pd.isna(v) and v < 0 else acct_pct(v)
+
     st.caption(
-        f"Past performance (average per year): last 3 years **{pct(f.return_3y)}** · last 5 years **{pct(f.return_5y)}** · "
+        f"Past performance (average per year): last 3 years **{past(f.return_3y)}** · last 5 years **{past(f.return_5y)}** · "
         f"beta **{f.beta:.2f}**. Past returns don't predict future ones."
     )
 
@@ -2519,8 +2539,8 @@ def render_fund(f: FundData, ticker: str) -> None:
                                                    (f"Fee {f.expense_ratio:.2%} a year", "")])
 
     if not f.can_value:
-        with st.container(border=True, key="verdict_orange"):
-            st.markdown("### :orange[No valuation for this fund]")
+        with st.container(border=True, key="verdict_neutral"):
+            st.markdown("### No valuation for this fund")
             st.write(
                 "This fund has no P/E ratio, which usually means it holds bonds rather than stocks. The valuation "
                 "model works by valuing the earnings of the companies a fund owns, so it only applies to stock funds."
@@ -2765,8 +2785,10 @@ def render_compare() -> None:
     # Fund-only columns are written as text so stocks show "—" instead of Streamlit's "None".
     shown["Expected return"] = df["Expected return"].map(lambda v: "—" if pd.isna(v) else f"{v:.1f}%")
     shown["Yearly fee"] = df["Yearly fee"].map(lambda v: "—" if pd.isna(v) else f"{v:.2f}%")
+    gap_style = shown.style.map(gap_ink, subset=["Gap vs. price"]) if hasattr(shown.style, "map") \
+        else shown.style.applymap(gap_ink, subset=["Gap vs. price"])
     st.dataframe(
-        shown, width="stretch", height=35 * (len(df) + 1) + 3,             # every row visible, no inner scroll
+        gap_style, width="stretch", height=35 * (len(df) + 1) + 3,         # every row visible, no inner scroll
         column_config={
             "Name": st.column_config.TextColumn(width=170),
             "Type": st.column_config.TextColumn(width=72),
@@ -2796,7 +2818,7 @@ def render_compare() -> None:
         v = valued.sort_values("Gap vs. price")
         fig = go.Figure(go.Bar(
             x=v["Gap vs. price"] / 100, y=v.index, orientation="h",
-            marker_color=[TEAL if g >= 0 else RED for g in v["Gap vs. price"]],
+            marker_color=[{"green": TEAL, "red": RED}.get(upside_tone(g / 100), GREY) for g in v["Gap vs. price"]],
             text=[f"{g:+.0f}%" for g in v["Gap vs. price"]], textposition="outside", cliponaxis=False,
         ))
         fig.add_vline(x=0, line_color=GREY)
@@ -2873,13 +2895,13 @@ def render_backtest() -> None:
     elif diff < -0.02 and beat < n / 2:
         verdict, color = "The model's \"cheap\" stocks did worse, on average", "red"
     else:
-        verdict, color = "No clear difference between \"cheap\" and \"expensive\" stocks", "orange"
+        verdict, color = "No clear difference between \"cheap\" and \"expensive\" stocks", "neutral"
     with st.container(border=True, key=f"verdict_{color}"):
         st.markdown(esc(
-            f"### :{color}[{verdict}]\n"
+            (f"### {verdict}\n" if color == "neutral" else f"### :{color}[{verdict}]\n") +
             f"Over {n} years ({period}), the third of stocks the model rated **cheapest** returned **{avg[cheap]:.1%} a "
             f"year** on average, versus **{avg[dear]:.1%}** for the **most expensive** third: a gap of "
-            f"**{diff:+.1%} a year**. The cheapest third came out ahead in **{beat} of {n} years**. Across all stocks, "
+            f"**{pts(diff)} a year**. The cheapest third came out ahead in **{beat} of {n} years**. Across all stocks, "
             f"the model's gap vs. price had {correlation_words(rho)} relationship with the next year's return "
             f"(rank correlation {rho:+.2f}, where 0 means none and 1 means perfect)."
         ))
@@ -2889,7 +2911,8 @@ def render_backtest() -> None:
     m1, m2, m3, m4 = kpi_row(4, "row5")
     m1.metric("Cheapest third", pct(avg[cheap]), help="Average yearly return, including dividends.")
     m2.metric("Most expensive third", pct(avg[dear]))
-    m3.metric("Difference", f"{diff:+.1%}", delta=f"{diff:+.1%} a year")
+    m3.metric("Difference a year", pts(diff),
+              help="Cheapest third's yearly return minus the most expensive third's, in percentage points.")
     m4.metric("Years cheap won", f"{beat} of {n}")
 
     yearly = pd.DataFrame(summary["yearly"]).set_index("year")

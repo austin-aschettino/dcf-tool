@@ -302,7 +302,7 @@ A green-on-green paper palette of inks, where every hue beyond the greens means 
 
 **The Red Ink Rule.** Negatives are written in red ink inside accounting parentheses, with the closing bracket hanging outside the figure column so digits stay aligned. Red and green are kept for value against price and never used for categories.
 
-**The Fifteen Percent Rule.** Every verdict on the site, the price against the estimate and the growth priced in against its yardstick alike, uses one rule: within 15% of the estimate it is plain ink with no colour; well above, red ink; well below, cheap green. "In line" and "can't work out" are neutral, never amber.
+**The Fifteen Percent Rule.** Every verdict on the site, the price against the estimate and the growth priced in against its yardstick alike, uses one rule: within 15% of the estimate it is plain ink with no colour; well above, red ink; well below, cheap green. "In line" and "can't work out" are neutral, never amber. The same rule inks every "estimate vs. price" gap figure: the Gap column on Compare and the "Gap vs. model" column on My portfolio (red ink or cheap green, 600, plain within the band), and the bars of Compare's "Estimate vs. price" chart (peer green, red ink, or market grey within the band). Grid cells take the day inks in both themes, because at night the data grids are drawn light and inverted. The backtest's verdict follows it too: an inconclusive result ("No clear difference") is plain ink, and its difference between two returns is written in points.
 
 **The Bookcloth Rule.** Ledger green binds and navigates (sidebar, active tab, crumbs, expander headings). It does not carry a verdict; verdicts, and the demand levels that echo them, use cheap-green and red-ink, or plain ink.
 
@@ -364,6 +364,7 @@ Three corners only: 4px for tags (chips, badges, metric deltas), 6px for control
 - **Default:** Streamlit's bordered button on the pad, label 600 weight; in dark mode filled with night-sheet and bordered with night-rule. Primary buttons at night fill with raised cloth and white text.
 - **Disabled:** full opacity, transparent fill, muted-ink label and a dashed border, so it reads as "this one is current" (the scenario card for your own settings) rather than as a faded control. Default cursor.
 - **Crumb:** a tertiary "Home" button in ledger green (600, 0.875rem) followed by a muted "›" and the current section.
+- **Home index buttons:** the "→ Value a stock", "→ Compare" and other buttons on the Home index are written in ledger green (600), icon included, and underline on hover, since they navigate.
 - **Loading a scenario:** the button writes the values into the sliders and a toast confirms what was loaded, since the sliders may be hidden on a phone.
 
 ### Chips
