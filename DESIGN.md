@@ -85,6 +85,11 @@ typography:
     fontWeight: 700
     lineHeight: 1.15
     letterSpacing: "-0.01em"
+  lede:
+    fontFamily: "Pad Figures, Public Sans, -apple-system, Segoe UI, sans-serif"
+    fontSize: "1.125rem"
+    fontWeight: 400
+    lineHeight: 1.55
   title-verdict:
     fontFamily: "Pad Figures, Public Sans, -apple-system, Segoe UI, sans-serif"
     fontSize: "1.45rem"
@@ -316,17 +321,19 @@ A green-on-green paper palette of inks, where every hue beyond the greens means 
 
 **Character:** A plain, public-service grotesque for the words and an old-style-born serif for the numbers, so a reader can tell at a glance which marks are arithmetic. Headings are 700 with a slight negative track (-0.01em).
 
-Figures reach every surface two ways: a `--figures` stack applied directly to metric values, footing values, quality-card values and step numerals; and a numerals-only web face, **Pad Figures**, cut from Source Serif 4 with a unicode-range of digits, `$ % ( ) + .` and the true minus, placed before Public Sans in every text stack (including Plotly's font family and every table). Commas and hyphens are left out of the range so words keep Public Sans punctuation. The whole app sets `font-variant-numeric: tabular-nums lining-nums`.
+Figures reach every surface two ways: a `--figures` stack applied directly to metric values, footing values, quality-card values and step numerals; and a numerals-only web face, **Pad Figures**, cut from Source Serif 4 with a unicode-range of digits, `$ % ( ) + .` and the true minus, placed before Public Sans in every text stack (including Plotly's font family and every table). Commas and hyphens are left out of the range so words keep Public Sans punctuation. The whole app sets `font-variant-numeric: tabular-nums lining-nums`. Data grids draw on a canvas that ignores page CSS, so the theme's body font in `.streamlit/config.toml` is itself the stack `Pad Figures, Public Sans, sans-serif` (the name before the colon), with the font address kept free of anything after `display=swap`; without the generic fallback a grid drawn before the face is ready falls back to the browser's default serif. Public Sans is loaded once, by the theme; the page CSS imports only Source Serif 4.
 
 ### Hierarchy
 - **Display** (700, 2.5rem, 1.12; display-phone 1.8rem under 640px): the Home statement only.
 - **Headline** (700, 2.1rem, 1.15; headline-phone 1.55rem under 640px): the company or page title.
+- **Lede** (400, 1.125rem, 1.55; lede-phone 1rem): the Home statement's paragraph only.
 - **Verdict title** (700, 1.45rem, 1.25, balanced wrap): the plain-words verdict heading.
 - **Title** (700, 1.25rem, 18px above / 8px below): section headings in the main column.
 - **Body** (400, 1rem, Streamlit default leading): explanations, kept to 64ch inside the verdict and wrapped with `text-wrap: pretty`; main-column captions are capped at 72ch.
 - **Nav** (500, 0.95rem): sidebar menu items.
 - **Body line** (400, 0.9375rem): the words of a footing line and today's-price row.
-- **Small** (600, 0.875–0.9rem): tab labels, crumbs, expander headings, quality-card names, pad notes (400).
+- **Card title** (700, 1.0625rem): Home index card headings and the sidebar brand.
+- **Small** (600, 0.875rem): tab labels, crumbs, expander headings, quality-card names; at 400 for pad notes, Home step and card descriptions.
 - **Small label** (600, 0.8125rem, 1.3): chips, metric labels, the sidebar brand's tagline.
 - **Label** (700, 0.75rem, 0.07–0.08em, uppercase): the footing caption and the sidebar's section labels only; badges use the same size unspaced.
 - **Figure total** (Source Serif 4 700, 2.1rem, 1.1; figure-total-phone 1.75rem): the footed answer.

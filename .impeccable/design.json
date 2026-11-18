@@ -862,6 +862,10 @@
         "displayName": "Headline (phone)",
         "purpose": "Company or page title below 640px."
       },
+      "lede": {
+        "displayName": "Lede",
+        "purpose": "The Home statement's paragraph; 1rem below 640px."
+      },
       "title-verdict": {
         "displayName": "Verdict title",
         "purpose": "The plain-words verdict heading; only its ink carries the result, under the Fifteen Percent Rule."

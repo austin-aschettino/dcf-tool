@@ -150,7 +150,7 @@ def is_dark() -> bool:
 
 CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap');
 /* ---- Columnar Pad --------------------------------------------------------------------------------
    Words in Public Sans; every figure in Source Serif 4 with tabular lining numerals, at every size.
    Ledger-green sidebar, pale green pad ground, flat panels with hairline rules, red ink for negatives,
@@ -180,7 +180,7 @@ CSS = """
 /* Home: the opening statement, set flat on the pad (no banner) */
 .hero { padding: 6px 0 4px 0; margin-bottom: 4px; max-width: 760px; }
 .hero h1 { color: var(--ink) !important; font-size: 2.5rem; font-weight: 700; margin: 0 0 8px 0; padding: 0; line-height: 1.12; }
-.hero p { color: var(--ink-2); margin: 0; font-size: 1.08rem; line-height: 1.55; }
+.hero p { color: var(--ink-2); margin: 0; font-size: 1.125rem; line-height: 1.55; }
 
 /* Page title for a stock/fund/page, with plain tags */
 .page-head { margin: 4px 0 0 0; }
@@ -272,7 +272,7 @@ CSS = """
 [data-baseweb="tab"] { border-radius: 0 !important; padding: 10px 14px !important; height: auto !important; background: transparent !important;
     border-bottom: 3px solid transparent !important; margin-bottom: -1px; transition: none !important; }
 [data-baseweb="tab"] { flex: 0 0 auto !important; }
-[data-baseweb="tab"] p { font-weight: 600; color: var(--muted); font-size: .9rem; white-space: nowrap; }
+[data-baseweb="tab"] p { font-weight: 600; color: var(--muted); font-size: .875rem; white-space: nowrap; }
 [data-baseweb="tab"]:hover p { color: var(--ink); }
 [data-baseweb="tab"][aria-selected="true"] { border-bottom-color: var(--ledger) !important; }
 [data-baseweb="tab"][aria-selected="true"] p { color: var(--ledger) !important; }
@@ -294,7 +294,7 @@ CSS = """
     border-style: dashed; }   /* reads as "this one is current", not as a faded control */
 /* A note about how far to trust the numbers: a ruled line with a small amber mark, never a tinted banner */
 .pad-note { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 8px 0 8px 22px; margin: 4px 0 10px 0;
-    color: var(--ink-2); font-size: .9rem; line-height: 1.5; position: relative; }
+    color: var(--ink-2); font-size: .875rem; line-height: 1.5; position: relative; }
 .pad-note::before { content: ""; position: absolute; left: 4px; top: 14px; width: 8px; height: 8px; border-radius: 50%;
     background: var(--amber); }
 .your-settings { color: var(--muted) !important; font-size: .875rem !important; line-height: 1.6; margin: 2px 0 4px 0; }
@@ -312,7 +312,7 @@ CSS = """
 [data-testid="stSidebarHeader"] { height: 2.25rem; padding-top: .5rem; padding-bottom: 0; }
 [data-testid="stSidebarUserContent"] { padding-top: .25rem; }
 .side-brand { padding: 4px 0 16px 0; margin-bottom: 6px; border-bottom: 1px solid #3a6b56; }
-.side-brand b { color: #fff; font-size: 1.05rem; display: block; line-height: 1.25; font-weight: 700; }
+.side-brand b { color: #fff; font-size: 1.0625rem; display: block; line-height: 1.25; font-weight: 700; }
 .side-brand span { color: #d3e3d9; font-size: .8125rem; }
 [data-testid="stSidebar"] h3 { color: #cfe0d5 !important; font-size: .75rem !important; text-transform: uppercase;
                                letter-spacing: .08em; margin-top: .4rem; font-weight: 700; }
@@ -359,14 +359,14 @@ CSS = """
 .pop-label { color: var(--muted); font-size: .75rem; font-weight: 600; margin: 6px 0 2px 0; }
 .step { display: flex; gap: 12px; align-items: baseline; border-top: 1px solid var(--rule); padding-top: 12px; }
 .step .num { flex: 0 0 auto; font-family: var(--figures); font-weight: 700; font-size: 1.5rem; color: var(--ledger); line-height: 1; }
-.step b { display: block; color: var(--ink); margin-bottom: 2px; } .step span { color: var(--muted); font-size: .9rem; }
+.step b { display: block; color: var(--ink); margin-bottom: 2px; } .step span { color: var(--muted); font-size: .875rem; }
 [class*="st-key-home_line_"] + [class*="st-key-home_line_"] { border-top: 1px solid var(--hair); padding-top: 12px; }
 /* The Home index's buttons take the reader somewhere, so they're written in navigation's ledger green. */
 [class*="st-key-home_open_"] button p, [class*="st-key-home_open_"] button [data-testid="stIconMaterial"] {
     color: var(--ledger) !important; font-weight: 600; }
 [class*="st-key-home_open_"] button:hover p { text-decoration: underline; text-underline-offset: 3px; }
-.home-card h4 { margin: 0 0 4px 0; padding: 0; font-size: 1.05rem; font-weight: 700; }
-.home-card p { color: var(--muted); margin: 0; font-size: .9rem; line-height: 1.45; }
+.home-card h4 { margin: 0 0 4px 0; padding: 0; font-size: 1.0625rem; font-weight: 700; }
+.home-card p { color: var(--muted); margin: 0; font-size: .875rem; line-height: 1.45; }
 
 /* Quality scorecard */
 .qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin: 6px 0 4px 0; }
@@ -391,7 +391,7 @@ CSS = """
 /* Phones */
 @media (max-width: 640px) {
     .hero h1 { font-size: 1.8rem; }
-    .hero p { font-size: .98rem; }
+    .hero p { font-size: 1rem; }
     .page-head h2 { font-size: 1.55rem; }
     .footing tr.total td.v { font-size: 1.75rem; }
     .footing td { font-size: .875rem; } .footing td.v { font-size: 1rem; }
